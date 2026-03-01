@@ -5,11 +5,11 @@
 #include <lvgl.h>
 
 // =============================================================================
-// Driver TFT e touch (globali per il driver LVGL)
+// TFT and touch drivers (globals for the LVGL driver)
 // =============================================================================
 static TFT_eSPI tft = TFT_eSPI();
 
-// Framebuffer LVGL (doppio buffer per fluidita')
+// LVGL framebuffer (double buffer for smooth rendering)
 static const uint32_t LV_BUF_SIZE = SCREEN_WIDTH * 20;
 static lv_color_t lv_buf1[LV_BUF_SIZE];
 static lv_color_t lv_buf2[LV_BUF_SIZE];
@@ -18,7 +18,7 @@ static lv_disp_drv_t lv_disp_drv;
 static lv_indev_drv_t lv_touch_drv;
 
 // =============================================================================
-// Callback LVGL per il flush del display
+// LVGL callback for display flush
 // =============================================================================
 static void disp_flush_cb(lv_disp_drv_t* drv, const lv_area_t* area, lv_color_t* color_map) {
     uint32_t w = area->x2 - area->x1 + 1;
@@ -31,7 +31,7 @@ static void disp_flush_cb(lv_disp_drv_t* drv, const lv_area_t* area, lv_color_t*
 }
 
 // =============================================================================
-// Callback LVGL per il touch
+// LVGL callback for touch input
 // =============================================================================
 static void touch_read_cb(lv_indev_drv_t* drv, lv_indev_data_t* data) {
     uint16_t tx, ty;
@@ -46,14 +46,14 @@ static void touch_read_cb(lv_indev_drv_t* drv, lv_indev_data_t* data) {
 }
 
 // =============================================================================
-// Tick timer (chiamato ogni 5ms via FreeRTOS ticker)
+// Tick timer (called every 5ms via FreeRTOS ticker)
 // =============================================================================
 static void IRAM_ATTR lvgl_tick_isr(void* arg) {
     lv_tick_inc(5);
 }
 
 // =============================================================================
-// Inizializzazione display
+// Display initialization
 // =============================================================================
 void lvgl_display_init() {
     tft.begin();
@@ -66,7 +66,7 @@ void lvgl_display_init() {
     ledcAttachPin(TFT_BL, 0);
     ledcWrite(0, BACKLIGHT_BRIGHTNESS);
 
-    // Calibrazione touch (valori indicativi per SenseCAP D1)
+    // Touch calibration (indicative values for SenseCAP D1)
     uint16_t calData[5] = {275, 3620, 264, 3532, 1};
     tft.setTouchCalibrate(calData);
 
@@ -98,7 +98,7 @@ void lvgl_tick_timer_init() {
 }
 
 // =============================================================================
-// Helper colore: converte hex RGB in lv_color_t
+// Color helper: converts hex RGB to lv_color_t
 // =============================================================================
 static lv_color_t hex2color(uint32_t hex) {
     return lv_color_make((hex >> 16) & 0xFF, (hex >> 8) & 0xFF, hex & 0xFF);
@@ -137,7 +137,7 @@ void UIManager::init() {
     lv_obj_t* screen = lv_scr_act();
     lv_obj_set_style_bg_color(screen, hex2color(COLOR_BG), 0);
 
-    // Tabview con swipe orizzontale, tab bar nascosta (usiamo i dot custom)
+    // Tabview with horizontal swipe, hidden tab bar (we use custom dots)
     _tabview = lv_tabview_create(screen, LV_DIR_LEFT, 0);
     lv_obj_set_size(_tabview, SCREEN_WIDTH, SCREEN_HEIGHT - 24);
     lv_obj_align(_tabview, LV_ALIGN_TOP_LEFT, 0, 0);
@@ -145,12 +145,12 @@ void UIManager::init() {
     lv_obj_set_style_bg_opa(_tabview, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(_tabview, 0, 0);
 
-    // Crea i tab (le pagine)
+    // Create tabs (pages)
     _tabPage1 = lv_tabview_add_tab(_tabview, "Info");
-    _tabPage2 = lv_tabview_add_tab(_tabview, "Meteo");
+    _tabPage2 = lv_tabview_add_tab(_tabview, "Weather");
     _tabPage3 = lv_tabview_add_tab(_tabview, "Alert");
 
-    // Sfondo pagine
+    // Page backgrounds
     lv_obj_set_style_bg_color(_tabPage1, hex2color(COLOR_PAGE1), 0);
     lv_obj_set_style_bg_opa(_tabPage1, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(_tabPage2, hex2color(COLOR_PAGE2), 0);
@@ -158,7 +158,7 @@ void UIManager::init() {
     lv_obj_set_style_bg_color(_tabPage3, hex2color(COLOR_PAGE3), 0);
     lv_obj_set_style_bg_opa(_tabPage3, LV_OPA_COVER, 0);
 
-    // Padding pagine
+    // Page padding
     lv_obj_set_style_pad_all(_tabPage1, 16, 0);
     lv_obj_set_style_pad_all(_tabPage2, 16, 0);
     lv_obj_set_style_pad_all(_tabPage3, 16, 0);
@@ -169,22 +169,22 @@ void UIManager::init() {
     _createNavDots(screen);
     _createOverlay();
 
-    // Listener cambio tab
+    // Tab change listener
     lv_obj_add_event_cb(_tabview, _onTabChanged, LV_EVENT_VALUE_CHANGED, this);
 
     _updateNavDots(0);
 }
 
 void UIManager::_createPage1(lv_obj_t* parent) {
-    // Titolo pagina
+    // Page title
     lv_obj_t* lblTitle = lv_label_create(parent);
-    lv_label_set_text(lblTitle, "INFORMAZIONI");
+    lv_label_set_text(lblTitle, "INFORMATION");
     lv_obj_set_style_text_color(lblTitle, hex2color(COLOR_ACCENT), 0);
     lv_obj_set_style_text_font(lblTitle, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_letter_space(lblTitle, 3, 0);
     lv_obj_align(lblTitle, LV_ALIGN_TOP_LEFT, 0, 0);
 
-    // Separatore
+    // Separator
     lv_obj_t* line = lv_line_create(parent);
     static lv_point_t pts[2] = {{0, 0}, {SCREEN_WIDTH - 32, 0}};
     lv_line_set_points(line, pts, 2);
@@ -193,7 +193,7 @@ void UIManager::_createPage1(lv_obj_t* parent) {
     lv_obj_set_style_line_opa(line, LV_OPA_50, 0);
     lv_obj_align(line, LV_ALIGN_TOP_LEFT, 0, 22);
 
-    // Data/ora - font grande
+    // Date/time - large font
     _lblDate = lv_label_create(parent);
     lv_label_set_text(_lblDate, "--");
     lv_obj_set_style_text_color(_lblDate, hex2color(COLOR_TEXT_PRIMARY), 0);
@@ -202,16 +202,16 @@ void UIManager::_createPage1(lv_obj_t* parent) {
     lv_label_set_long_mode(_lblDate, LV_LABEL_LONG_WRAP);
     lv_obj_align(_lblDate, LV_ALIGN_TOP_LEFT, 0, 34);
 
-    // Messaggio
+    // Message
     _lblMessage = lv_label_create(parent);
-    lv_label_set_text(_lblMessage, "In attesa di dati...");
+    lv_label_set_text(_lblMessage, "Waiting for data...");
     lv_obj_set_style_text_color(_lblMessage, hex2color(COLOR_TEXT_SECONDARY), 0);
     lv_obj_set_style_text_font(_lblMessage, &lv_font_montserrat_18, 0);
     lv_obj_set_width(_lblMessage, SCREEN_WIDTH - 32);
     lv_label_set_long_mode(_lblMessage, LV_LABEL_LONG_WRAP);
     lv_obj_align(_lblMessage, LV_ALIGN_TOP_LEFT, 0, 90);
 
-    // Stato aggiornamento
+    // Update status
     _lblP1Status = lv_label_create(parent);
     lv_label_set_text(_lblP1Status, "");
     lv_obj_set_style_text_color(_lblP1Status, hex2color(COLOR_TEXT_SECONDARY), 0);
@@ -220,15 +220,15 @@ void UIManager::_createPage1(lv_obj_t* parent) {
 }
 
 void UIManager::_createPage2(lv_obj_t* parent) {
-    // Titolo pagina
+    // Page title
     lv_obj_t* lblTitle = lv_label_create(parent);
-    lv_label_set_text(lblTitle, "METEO");
+    lv_label_set_text(lblTitle, "WEATHER");
     lv_obj_set_style_text_color(lblTitle, hex2color(COLOR_WEATHER), 0);
     lv_obj_set_style_text_font(lblTitle, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_letter_space(lblTitle, 3, 0);
     lv_obj_align(lblTitle, LV_ALIGN_TOP_LEFT, 0, 0);
 
-    // Separatore
+    // Separator
     lv_obj_t* line = lv_line_create(parent);
     static lv_point_t pts[2] = {{0, 0}, {SCREEN_WIDTH - 32, 0}};
     lv_line_set_points(line, pts, 2);
@@ -237,23 +237,23 @@ void UIManager::_createPage2(lv_obj_t* parent) {
     lv_obj_set_style_line_opa(line, LV_OPA_50, 0);
     lv_obj_align(line, LV_ALIGN_TOP_LEFT, 0, 22);
 
-    // Icona meteo (simbolo unicode grande)
+    // Weather icon (large unicode symbol)
     _lblWeatherIcon = lv_label_create(parent);
     lv_label_set_text(_lblWeatherIcon, LV_SYMBOL_EYE_OPEN);
     lv_obj_set_style_text_color(_lblWeatherIcon, hex2color(COLOR_WEATHER), 0);
     lv_obj_set_style_text_font(_lblWeatherIcon, &lv_font_montserrat_48, 0);
     lv_obj_align(_lblWeatherIcon, LV_ALIGN_TOP_LEFT, 0, 36);
 
-    // Testo meteo
+    // Weather text
     _lblWeatherText = lv_label_create(parent);
-    lv_label_set_text(_lblWeatherText, "In attesa di dati...");
+    lv_label_set_text(_lblWeatherText, "Waiting for data...");
     lv_obj_set_style_text_color(_lblWeatherText, hex2color(COLOR_TEXT_PRIMARY), 0);
     lv_obj_set_style_text_font(_lblWeatherText, &lv_font_montserrat_22, 0);
     lv_obj_set_width(_lblWeatherText, SCREEN_WIDTH - 32);
     lv_label_set_long_mode(_lblWeatherText, LV_LABEL_LONG_WRAP);
     lv_obj_align(_lblWeatherText, LV_ALIGN_TOP_LEFT, 0, 100);
 
-    // Stato
+    // Status
     _lblP2Status = lv_label_create(parent);
     lv_label_set_text(_lblP2Status, "");
     lv_obj_set_style_text_color(_lblP2Status, hex2color(COLOR_TEXT_SECONDARY), 0);
@@ -262,7 +262,7 @@ void UIManager::_createPage2(lv_obj_t* parent) {
 }
 
 void UIManager::_createPage3(lv_obj_t* parent) {
-    // Titolo pagina
+    // Page title
     lv_obj_t* lblTitle = lv_label_create(parent);
     lv_label_set_text(lblTitle, "ALERT");
     lv_obj_set_style_text_color(lblTitle, hex2color(COLOR_ALERT), 0);
@@ -270,7 +270,7 @@ void UIManager::_createPage3(lv_obj_t* parent) {
     lv_obj_set_style_text_letter_space(lblTitle, 3, 0);
     lv_obj_align(lblTitle, LV_ALIGN_TOP_LEFT, 0, 0);
 
-    // Separatore
+    // Separator
     lv_obj_t* line = lv_line_create(parent);
     static lv_point_t pts[2] = {{0, 0}, {SCREEN_WIDTH - 32, 0}};
     lv_line_set_points(line, pts, 2);
@@ -279,23 +279,23 @@ void UIManager::_createPage3(lv_obj_t* parent) {
     lv_obj_set_style_line_opa(line, LV_OPA_50, 0);
     lv_obj_align(line, LV_ALIGN_TOP_LEFT, 0, 22);
 
-    // Icona alert
+    // Alert icon
     _lblAlertIcon = lv_label_create(parent);
     lv_label_set_text(_lblAlertIcon, LV_SYMBOL_WARNING);
     lv_obj_set_style_text_color(_lblAlertIcon, hex2color(COLOR_ALERT), 0);
     lv_obj_set_style_text_font(_lblAlertIcon, &lv_font_montserrat_48, 0);
     lv_obj_align(_lblAlertIcon, LV_ALIGN_TOP_LEFT, 0, 36);
 
-    // Testo alert
+    // Alert text
     _lblAlertText = lv_label_create(parent);
-    lv_label_set_text(_lblAlertText, "Nessun alert attivo");
+    lv_label_set_text(_lblAlertText, "No active alerts");
     lv_obj_set_style_text_color(_lblAlertText, hex2color(COLOR_TEXT_PRIMARY), 0);
     lv_obj_set_style_text_font(_lblAlertText, &lv_font_montserrat_22, 0);
     lv_obj_set_width(_lblAlertText, SCREEN_WIDTH - 32);
     lv_label_set_long_mode(_lblAlertText, LV_LABEL_LONG_WRAP);
     lv_obj_align(_lblAlertText, LV_ALIGN_TOP_LEFT, 0, 100);
 
-    // Stato
+    // Status
     _lblP3Status = lv_label_create(parent);
     lv_label_set_text(_lblP3Status, "");
     lv_obj_set_style_text_color(_lblP3Status, hex2color(COLOR_TEXT_SECONDARY), 0);
@@ -304,7 +304,7 @@ void UIManager::_createPage3(lv_obj_t* parent) {
 }
 
 void UIManager::_createNavDots(lv_obj_t* parent) {
-    // Contenitore dots in basso
+    // Navigation dots container at the bottom
     _dotContainer = lv_obj_create(parent);
     lv_obj_set_size(_dotContainer, PAGE_COUNT * (NAV_DOT_SIZE + NAV_DOT_GAP), NAV_DOT_SIZE + 8);
     lv_obj_align(_dotContainer, LV_ALIGN_BOTTOM_MID, 0, -2);
@@ -361,7 +361,7 @@ void UIManager::_createOverlay() {
     lv_obj_set_style_arc_color(_spinnerOverlay, hex2color(COLOR_ACCENT), LV_PART_INDICATOR);
 
     _lblOverlayMsg = lv_label_create(_overlayScreen);
-    lv_label_set_text(_lblOverlayMsg, "Connessione WiFi...");
+    lv_label_set_text(_lblOverlayMsg, "Connecting to WiFi...");
     lv_obj_set_style_text_color(_lblOverlayMsg, hex2color(COLOR_TEXT_PRIMARY), 0);
     lv_obj_set_style_text_font(_lblOverlayMsg, &lv_font_montserrat_18, 0);
     lv_obj_align(_lblOverlayMsg, LV_ALIGN_CENTER, 0, 50);
@@ -371,7 +371,7 @@ void UIManager::_createOverlay() {
 
 void UIManager::showConnecting() {
     if (_overlayScreen) {
-        lv_label_set_text(_lblOverlayMsg, "Connessione WiFi...");
+        lv_label_set_text(_lblOverlayMsg, "Connecting to WiFi...");
         lv_obj_set_style_bg_opa(_overlayScreen, LV_OPA_90, 0);
         lv_obj_clear_flag(_spinnerOverlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(_overlayScreen, LV_OBJ_FLAG_HIDDEN);
@@ -391,53 +391,53 @@ void UIManager::showError(const String& msg) {
 }
 
 void UIManager::updateData(const DisplayData& data) {
-    // Nascondi overlay
+    // Hide overlay
     if (_overlayScreen && _overlayVisible) {
         lv_obj_add_flag(_overlayScreen, LV_OBJ_FLAG_HIDDEN);
         _overlayVisible = false;
     }
 
     if (!data.valid) {
-        // Mostra errore ma non blocca l'UI
-        String errMsg = "Dati non disponibili";
+        // Show error but do not block the UI
+        String errMsg = "Data not available";
         if (_lblP1Status) lv_label_set_text(_lblP1Status, errMsg.c_str());
         if (_lblP2Status) lv_label_set_text(_lblP2Status, errMsg.c_str());
         if (_lblP3Status) lv_label_set_text(_lblP3Status, errMsg.c_str());
         return;
     }
 
-    // Pagina 1: Data + Messaggio
+    // Page 1: Date + Message
     if (_lblDate)    lv_label_set_text(_lblDate,    data.date.c_str());
     if (_lblMessage) lv_label_set_text(_lblMessage, data.message.c_str());
 
-    // Timestamp aggiornamento
+    // Update timestamp
     uint32_t secsAgo = (millis() - data.fetchedAt) / 1000;
-    String ts = "Aggiornato " + String(secsAgo) + "s fa";
+    String ts = "Updated " + String(secsAgo) + "s ago";
     if (_lblP1Status) lv_label_set_text(_lblP1Status, ts.c_str());
     if (_lblP2Status) lv_label_set_text(_lblP2Status, ts.c_str());
     if (_lblP3Status) lv_label_set_text(_lblP3Status, ts.c_str());
 
-    // Pagina 2: Meteo
+    // Page 2: Weather
     if (_lblWeatherText) lv_label_set_text(_lblWeatherText, data.weather.c_str());
 
-    // Icona meteo basata su keywords
+    // Weather icon based on keywords
     if (_lblWeatherIcon) {
         String w = data.weather;
         w.toLowerCase();
-        if (w.indexOf("sole") >= 0 || w.indexOf("soleg") >= 0)
+        if (w.indexOf("sun") >= 0 || w.indexOf("sunny") >= 0 || w.indexOf("clear") >= 0)
             lv_label_set_text(_lblWeatherIcon, LV_SYMBOL_POWER);
-        else if (w.indexOf("nuvol") >= 0 || w.indexOf("cloud") >= 0)
+        else if (w.indexOf("cloud") >= 0 || w.indexOf("overcast") >= 0)
             lv_label_set_text(_lblWeatherIcon, LV_SYMBOL_UPLOAD);
-        else if (w.indexOf("piog") >= 0 || w.indexOf("rain") >= 0)
+        else if (w.indexOf("rain") >= 0 || w.indexOf("drizzle") >= 0)
             lv_label_set_text(_lblWeatherIcon, LV_SYMBOL_DOWNLOAD);
         else
             lv_label_set_text(_lblWeatherIcon, LV_SYMBOL_EYE_OPEN);
     }
 
-    // Pagina 3: Alert
+    // Page 3: Alert
     if (_lblAlertText) {
         if (data.alert.isEmpty() || data.alert == "none" || data.alert == "-") {
-            lv_label_set_text(_lblAlertText, "Nessun alert attivo");
+            lv_label_set_text(_lblAlertText, "No active alerts");
             if (_lblAlertIcon)
                 lv_obj_set_style_text_color(_lblAlertIcon, hex2color(COLOR_ACCENT), 0);
             if (_lblAlertText)

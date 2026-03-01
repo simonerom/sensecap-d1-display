@@ -9,7 +9,7 @@ bool WiFiManager::connect(const char* ssid, const char* password, uint32_t timeo
     _password = password;
     _timeout_ms = timeout_ms;
 
-    DEBUG_PRINTF("[WiFi] Connessione a: %s\n", ssid);
+    DEBUG_PRINTF("[WiFi] Connecting to: %s\n", ssid);
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
@@ -17,7 +17,7 @@ bool WiFiManager::connect(const char* ssid, const char* password, uint32_t timeo
     uint32_t start = millis();
     while (WiFi.status() != WL_CONNECTED) {
         if (millis() - start > timeout_ms) {
-            DEBUG_PRINTLN("[WiFi] Timeout connessione!");
+            DEBUG_PRINTLN("[WiFi] Connection timeout!");
             _connected = false;
             return false;
         }
@@ -27,7 +27,7 @@ bool WiFiManager::connect(const char* ssid, const char* password, uint32_t timeo
 
     _connected = true;
     DEBUG_PRINTLN();
-    DEBUG_PRINTF("[WiFi] Connesso! IP: %s  RSSI: %d dBm\n",
+    DEBUG_PRINTF("[WiFi] Connected! IP: %s  RSSI: %d dBm\n",
                  WiFi.localIP().toString().c_str(),
                  WiFi.RSSI());
     return true;
@@ -39,7 +39,7 @@ bool WiFiManager::ensureConnected() {
         return true;
     }
 
-    DEBUG_PRINTLN("[WiFi] Connessione persa, riconnessione...");
+    DEBUG_PRINTLN("[WiFi] Connection lost, reconnecting...");
     _connected = false;
 
     WiFi.disconnect();

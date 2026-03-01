@@ -1,6 +1,6 @@
 /**
- * lv_conf.h - Configurazione LVGL per SenseCAP Indicator D1
- * Basato su lv_conf_template.h di LVGL 8.x
+ * lv_conf.h - LVGL configuration for SenseCAP Indicator D1
+ * Based on lv_conf_template.h from LVGL 8.x
  */
 
 #if 1 /* Set this to 1 to enable content */
@@ -115,12 +115,12 @@
 #define LV_FONT_MONTSERRAT_46 0
 #define LV_FONT_MONTSERRAT_48 1
 
-/* Font speciali */
+/* Special fonts */
 #define LV_FONT_UNSCII_8  0
 #define LV_FONT_UNSCII_16 0
 #define LV_FONT_CUSTOM_DECLARE
 
-/* Font di default */
+/* Default font */
 #define LV_FONT_DEFAULT &lv_font_montserrat_14
 
 #define LV_FONT_FMT_TXT_LARGE 0

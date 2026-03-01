@@ -1,166 +1,166 @@
 # SenseCAP Indicator D1 - Display Firmware
 
-Firmware PlatformIO per il **Seeed SenseCAP Indicator D1** (ESP32-S3 + display touchscreen da 4 pollici).
+PlatformIO firmware for the **Seeed SenseCAP Indicator D1** (ESP32-S3 + 4-inch touchscreen display).
 
-Il dispositivo si connette al WiFi, effettua polling ogni 60 secondi di un endpoint HTTP locale e mostra i dati su un'interfaccia LVGL con 3 pagine scorrevoli.
-
----
-
-## Funzionalita'
-
-- **Connessione WiFi** automatica con riconnessione in caso di perdita del segnale
-- **Polling HTTP** ogni 60 secondi di un endpoint locale configurabile
-- **UI LVGL** con 3 pagine swipe orizzontale:
-  - Pagina 1: Data e messaggio
-  - Pagina 2: Condizioni meteo
-  - Pagina 3: Alert/notifiche
-- **Tema scuro** con font grandi e indicatori di navigazione (dots)
-- **Architettura multi-task** FreeRTOS (UI su core 1, rete su core 0)
-- **Aggiornamento automatico** ogni 60 secondi
+The device connects to WiFi, polls a local HTTP endpoint every 60 seconds, and displays the data on an LVGL interface with 3 swipeable pages.
 
 ---
 
-## Struttura del progetto
+## Features
+
+- **Automatic WiFi connection** with reconnection on signal loss
+- **HTTP polling** every 60 seconds from a configurable local endpoint
+- **LVGL UI** with 3 horizontally swipeable pages:
+  - Page 1: Date and message
+  - Page 2: Weather conditions
+  - Page 3: Alerts/notifications
+- **Dark theme** with large fonts and navigation indicators (dots)
+- **Multi-task FreeRTOS architecture** (UI on core 1, network on core 0)
+- **Automatic refresh** every 60 seconds
+
+---
+
+## Project Structure
 
 ```
 sensecap-d1-display/
-├── platformio.ini          # Configurazione PlatformIO
+├── platformio.ini          # PlatformIO configuration
 ├── include/
-│   ├── config.h            # Configurazione WiFi, endpoint, colori
-│   └── lv_conf.h           # Configurazione LVGL
+│   ├── config.h            # WiFi, endpoint, and color configuration
+│   └── lv_conf.h           # LVGL configuration
 ├── src/
-│   ├── main.cpp            # Entry point e task FreeRTOS
-│   ├── wifi_manager.h/.cpp # Gestione connessione WiFi
-│   ├── data_fetcher.h/.cpp # Fetch e parsing dati HTTP/JSON
-│   └── ui.h/.cpp           # UI LVGL (3 pagine + overlay)
+│   ├── main.cpp            # Entry point and FreeRTOS tasks
+│   ├── wifi_manager.h/.cpp # WiFi connection management
+│   ├── data_fetcher.h/.cpp # HTTP/JSON data fetching and parsing
+│   └── ui.h/.cpp           # LVGL UI (3 pages + overlay)
 ├── scripts/
-│   └── setup_lvgl.py       # Script pre-build per configurare LVGL
+│   └── setup_lvgl.py       # Pre-build script to configure LVGL
 └── README.md
 ```
 
 ---
 
-## Configurazione
+## Configuration
 
-Modifica il file `include/config.h` prima di compilare:
+Edit `include/config.h` before building:
 
 ```c
 // WiFi
-#define WIFI_SSID       "TuaReteWiFi"
-#define WIFI_PASSWORD   "TuaPassword"
+#define WIFI_SSID       "YourWiFiNetwork"
+#define WIFI_PASSWORD   "YourPassword"
 
-// Endpoint HTTP locale
+// Local HTTP endpoint
 #define DATA_ENDPOINT_HOST  "192.168.1.100"
 #define DATA_ENDPOINT_PORT  8080
 #define DATA_ENDPOINT_PATH  "/api/display"
 
-// Intervallo di polling (millisecondi)
+// Polling interval (milliseconds)
 #define POLL_INTERVAL_MS    60000
 ```
 
 ---
 
-## Formato risposta API
+## API Response Format
 
-L'endpoint deve restituire un oggetto JSON con questo schema:
+The endpoint must return a JSON object with this schema:
 
 ```json
 {
-  "date":    "Domenica 1 Marzo 2026 - 10:30",
-  "message": "Buongiorno! Hai 3 nuovi messaggi.",
-  "weather": "Soleggiato, 18°C - Vento 10 km/h",
-  "alert":   "Riunione alle 15:00 in sala conferenze"
+  "date":    "Sunday, March 1, 2026 - 10:30",
+  "message": "Good morning! You have 3 new messages.",
+  "weather": "Sunny, 18°C - Wind 10 km/h",
+  "alert":   "Meeting at 3:00 PM in the conference room"
 }
 ```
 
-| Campo     | Tipo   | Descrizione                                      |
-|-----------|--------|--------------------------------------------------|
-| `date`    | string | Data e ora da mostrare nella pagina 1            |
-| `message` | string | Messaggio principale della pagina 1              |
-| `weather` | string | Condizioni meteo per la pagina 2                 |
-| `alert`   | string | Testo alert per la pagina 3 (`""` = nessun alert)|
+| Field     | Type   | Description                                           |
+|-----------|--------|-------------------------------------------------------|
+| `date`    | string | Date and time shown on page 1                         |
+| `message` | string | Main message shown on page 1                          |
+| `weather` | string | Weather conditions shown on page 2                    |
+| `alert`   | string | Alert text shown on page 3 (`""` = no active alert)   |
 
 ---
 
-## Dipendenze
+## Dependencies
 
-| Libreria       | Versione | Descrizione                    |
-|----------------|----------|--------------------------------|
-| `lvgl/lvgl`    | ^8.3.11  | GUI library                    |
-| `bodmer/TFT_eSPI` | ^2.5.43 | Driver display SPI          |
-| `bblanchon/ArduinoJson` | ^7.0.4 | Parsing JSON             |
+| Library                   | Version  | Description              |
+|---------------------------|----------|--------------------------|
+| `lvgl/lvgl`               | ^8.3.11  | GUI library              |
+| `bodmer/TFT_eSPI`         | ^2.5.43  | SPI display driver       |
+| `bblanchon/ArduinoJson`   | ^7.0.4   | JSON parsing             |
 
 ---
 
-## Build e flash
+## Build & Flash
 
-### Prerequisiti
+### Prerequisites
 
-- [PlatformIO](https://platformio.org/) (estensione VS Code o CLI)
-- Python 3.x (per lo script pre-build)
+- [PlatformIO](https://platformio.org/) (VS Code extension or CLI)
+- Python 3.x (for the pre-build script)
 
-### Compilazione
+### Compilation
 
 ```bash
-# Da riga di comando
+# From the command line
 pio run
 
-# Flash sul dispositivo
+# Flash to device
 pio run --target upload
 
-# Monitor seriale
+# Serial monitor
 pio device monitor
 ```
 
-### Prima compilazione
+### First Build
 
-1. Clona il repository
-2. Modifica `include/config.h` con le credenziali WiFi e l'endpoint
-3. Connetti il SenseCAP Indicator D1 via USB
-4. Esegui `pio run --target upload`
+1. Clone the repository
+2. Edit `include/config.h` with your WiFi credentials and endpoint
+3. Connect the SenseCAP Indicator D1 via USB
+4. Run `pio run --target upload`
 
 ---
 
 ## Hardware: SenseCAP Indicator D1
 
-| Componente      | Specifiche                        |
-|-----------------|-----------------------------------|
-| MCU principale  | ESP32-S3 (240 MHz, WiFi + BT)    |
-| MCU secondario  | RP2040 (non usato in questo fw)  |
-| Display         | 4" IPS touchscreen 480x320       |
-| Driver display  | ILI9341 (SPI)                    |
-| Touch           | Resistivo (calibrazione inclusa) |
-| Flash           | 8 MB                             |
-| PSRAM           | 8 MB (OSPI)                      |
+| Component        | Specs                              |
+|------------------|------------------------------------|
+| Main MCU         | ESP32-S3 (240 MHz, WiFi + BT)     |
+| Secondary MCU    | RP2040 (not used in this firmware) |
+| Display          | 4" IPS touchscreen 480x320        |
+| Display driver   | ILI9341 (SPI)                     |
+| Touch            | Resistive (calibration included)  |
+| Flash            | 8 MB                              |
+| PSRAM            | 8 MB (OSPI)                       |
 
 ---
 
-## Pin display (ESP32-S3)
+## Display Pins (ESP32-S3)
 
-| Funzione | GPIO |
-|----------|------|
-| MOSI     | 11   |
-| SCLK     | 12   |
-| CS       | 10   |
-| DC       | 14   |
-| RST      | 9    |
-| Backlight| 45   |
-| Touch CS | 8    |
+| Function  | GPIO |
+|-----------|------|
+| MOSI      | 11   |
+| SCLK      | 12   |
+| CS        | 10   |
+| DC        | 14   |
+| RST       | 9    |
+| Backlight | 45   |
+| Touch CS  | 8    |
 
 ---
 
-## Architettura firmware
+## Firmware Architecture
 
 ```
 setup()
- ├── lvgl_display_init()   # Init TFT_eSPI + driver LVGL
- ├── lvgl_tick_timer_init() # Timer ISR 5ms per LVGL
- ├── ui.init()             # Crea le 3 pagine LVGL
- ├── taskUI (Core 1)       # Loop LVGL ogni 5ms
- └── taskNetwork (Core 0)  # WiFi + fetch ogni 60s
+ ├── lvgl_display_init()    # Init TFT_eSPI + LVGL driver
+ ├── lvgl_tick_timer_init() # 5ms ISR timer for LVGL
+ ├── ui.init()              # Create the 3 LVGL pages
+ ├── taskUI (Core 1)        # LVGL loop every 5ms
+ └── taskNetwork (Core 0)   # WiFi + fetch every 60s
 ```
 
-### Flusso dati
+### Data Flow
 
 ```
 taskNetwork:
@@ -169,32 +169,32 @@ taskNetwork:
   fetcher.fetch(data)
     └─> HTTP GET -> JSON parse -> DisplayData
   ui.updateData(data)
-    └─> aggiorna labels LVGL
+    └─> update LVGL labels
 
 taskUI:
   ui.tick()
-    └─> lv_timer_handler()  # Ridisegna se necessario
+    └─> lv_timer_handler()  # Redraw if needed
 ```
 
 ---
 
-## Personalizzazione UI
+## UI Customization
 
-I colori sono definiti in `include/config.h`:
+Colors are defined in `include/config.h`:
 
 ```c
-#define COLOR_BG        0x1A1A2E  // Sfondo principale
-#define COLOR_PAGE1     0x16213E  // Sfondo pagina 1
-#define COLOR_ACCENT    0x00D4AA  // Colore accento (verde-acqua)
-#define COLOR_ALERT     0xFF6B6B  // Colore alert (rosso)
-#define COLOR_WEATHER   0x74B9FF  // Colore meteo (azzurro)
+#define COLOR_BG        0x1A1A2E  // Main background
+#define COLOR_PAGE1     0x16213E  // Page 1 background
+#define COLOR_ACCENT    0x00D4AA  // Accent color (teal)
+#define COLOR_ALERT     0xFF6B6B  // Alert color (red)
+#define COLOR_WEATHER   0x74B9FF  // Weather color (blue)
 ```
 
 ---
 
-## Server di esempio (Python)
+## Example Server (Python)
 
-Un semplice server Flask per testare il firmware:
+A simple Flask server for testing the firmware:
 
 ```python
 from flask import Flask, jsonify
@@ -206,32 +206,32 @@ app = Flask(__name__)
 def display_data():
     return jsonify({
         "date":    datetime.now().strftime("%A %d %B %Y - %H:%M"),
-        "message": "Sistema operativo. Tutto nella norma.",
-        "weather": "Soleggiato, 18°C - Umidita' 65%",
-        "alert":   ""  # Stringa vuota = nessun alert
+        "message": "System running. Everything is normal.",
+        "weather": "Sunny, 18°C - Humidity 65%",
+        "alert":   ""  # Empty string = no active alert
     })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
 ```
 
-Avvia con: `python server.py`
+Start with: `python server.py`
 
 ---
 
-## Calibrazione touch
+## Touch Calibration
 
-I valori di calibrazione del touch resistivo si trovano in `src/ui.cpp`:
+The resistive touch calibration values are in `src/ui.cpp`:
 
 ```cpp
 uint16_t calData[5] = {275, 3620, 264, 3532, 1};
 tft.setTouchCalibrate(calData);
 ```
 
-Per ricalibrare, esegui lo sketch di calibrazione di TFT_eSPI e sostituisci i valori.
+To recalibrate, run the TFT_eSPI calibration sketch and replace the values.
 
 ---
 
-## Licenza
+## License
 
-MIT License - vedi [LICENSE](LICENSE) per i dettagli.
+MIT License - see [LICENSE](LICENSE) for details.

@@ -1,25 +1,25 @@
 #pragma once
 
 // =============================================================================
-// CONFIGURAZIONE WIFI
+// WIFI CONFIGURATION
 // =============================================================================
-#define WIFI_SSID       "TuaReteWiFi"
-#define WIFI_PASSWORD   "TuaPassword"
+#define WIFI_SSID       "YourWiFiNetwork"
+#define WIFI_PASSWORD   "YourPassword"
 #define WIFI_TIMEOUT_MS 10000
 
 // =============================================================================
-// ENDPOINT HTTP
+// HTTP ENDPOINT
 // =============================================================================
-// URL dell'endpoint locale che restituisce i dati JSON:
+// URL of the local endpoint that returns JSON data:
 // { "date": "...", "message": "...", "weather": "...", "alert": "..." }
 #define DATA_ENDPOINT_HOST  "192.168.1.100"
 #define DATA_ENDPOINT_PORT  8080
 #define DATA_ENDPOINT_PATH  "/api/display"
 
-// Intervallo di polling in millisecondi (default: 60 secondi)
+// Polling interval in milliseconds (default: 60 seconds)
 #define POLL_INTERVAL_MS    60000
 
-// Timeout HTTP in millisecondi
+// HTTP timeout in milliseconds
 #define HTTP_TIMEOUT_MS     5000
 
 // =============================================================================
@@ -29,33 +29,33 @@
 #define SCREEN_HEIGHT   320
 #define DISPLAY_ROTATION 1  // Landscape
 
-// Luminosita' backlight (0-255)
+// Backlight brightness (0-255)
 #define BACKLIGHT_BRIGHTNESS 200
 
 // =============================================================================
 // UI / LVGL
 // =============================================================================
-// Numero di pagine swipe
+// Number of swipe pages
 #define PAGE_COUNT      3
 
-// Durata animazione swipe in ms
+// Swipe animation duration in ms
 #define SWIPE_ANIM_MS   300
 
-// Colori tema scuro
-#define COLOR_BG        0x1A1A2E  // Sfondo scuro blu-notte
-#define COLOR_PAGE1     0x16213E  // Pagina data/messaggio
-#define COLOR_PAGE2     0x0F3460  // Pagina meteo
-#define COLOR_PAGE3     0x1B1B2F  // Pagina alert
+// Dark theme colors
+#define COLOR_BG        0x1A1A2E  // Dark navy background
+#define COLOR_PAGE1     0x16213E  // Date/message page
+#define COLOR_PAGE2     0x0F3460  // Weather page
+#define COLOR_PAGE3     0x1B1B2F  // Alert page
 
-#define COLOR_TEXT_PRIMARY   0xE0E0E0  // Testo principale
-#define COLOR_TEXT_SECONDARY 0x9E9E9E  // Testo secondario
-#define COLOR_ACCENT         0x00D4AA  // Accento verde-acqua
-#define COLOR_ALERT          0xFF6B6B  // Rosso alert
-#define COLOR_WEATHER        0x74B9FF  // Azzurro meteo
-#define COLOR_DOT_ACTIVE     0xFFFFFF  // Dot navigazione attivo
-#define COLOR_DOT_INACTIVE   0x555555  // Dot navigazione inattivo
+#define COLOR_TEXT_PRIMARY   0xE0E0E0  // Primary text
+#define COLOR_TEXT_SECONDARY 0x9E9E9E  // Secondary text
+#define COLOR_ACCENT         0x00D4AA  // Teal accent
+#define COLOR_ALERT          0xFF6B6B  // Alert red
+#define COLOR_WEATHER        0x74B9FF  // Weather blue
+#define COLOR_DOT_ACTIVE     0xFFFFFF  // Active navigation dot
+#define COLOR_DOT_INACTIVE   0x555555  // Inactive navigation dot
 
-// Dimensioni dot navigazione
+// Navigation dot sizes
 #define NAV_DOT_SIZE    8
 #define NAV_DOT_GAP     16
 
