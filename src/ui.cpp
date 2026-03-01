@@ -68,7 +68,7 @@ void lvgl_display_init() {
 
     // Touch calibration (indicative values for SenseCAP D1)
     uint16_t calData[5] = {275, 3620, 264, 3532, 1};
-    tft.setTouchCalibrate(calData);
+    tft.setTouch(calData);
 
     lv_init();
 
