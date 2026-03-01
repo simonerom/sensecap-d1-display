@@ -2,34 +2,44 @@
 
 #include <Arduino.h>
 
-// Struttura dati restituita dall'endpoint
+// Data structure returned from the JSON endpoint
 struct DisplayData {
-    String date;
-    String message;
-    String weather;
-    String alert;
-    bool   valid;       // true se i dati sono stati ricevuti con successo
-    uint32_t fetchedAt; // millis() al momento del fetch
+    // From server JSON
+    String time;             // "HH:MM"
+    String date;             // "Monday, March 2"
+    String message;          // daily message / greeting
+    String weather;          // weather description
+    String tempOutdoor;      // "12C"
+    String humidityOutdoor;  // "65"
+    String alert;            // alert text, empty if none
+
+    // From Grove sensor (local, updated separately)
+    float  tempIndoor;
+    float  humidityIndoor;
+    bool   sensorAvailable;
+
+    bool     valid;       // true if server data received successfully
+    uint32_t fetchedAt;   // millis() at time of fetch
 };
 
 class DataFetcher {
 public:
-    DataFetcher(const char* host, uint16_t port, const char* path, uint32_t timeout_ms);
+    DataFetcher();
 
-    // Esegue il fetch e popola 'data'. Ritorna true se successo.
+    // Configure host/port/path at runtime (from NVS settings)
+    void configure(const String& host, uint16_t port, const String& path, uint32_t timeout_ms);
+
+    // Perform fetch and populate 'data'. Returns true on success.
     bool fetch(DisplayData& data);
 
-    // Ritorna l'ultimo codice HTTP ricevuto
     int lastHttpCode() const { return _lastHttpCode; }
-
-    // Ritorna l'ultimo messaggio di errore
     const String& lastError() const { return _lastError; }
 
 private:
-    const char* _host;
-    uint16_t    _port;
-    const char* _path;
-    uint32_t    _timeout_ms;
-    int         _lastHttpCode;
-    String      _lastError;
+    String   _host;
+    uint16_t _port;
+    String   _path;
+    uint32_t _timeout_ms;
+    int      _lastHttpCode;
+    String   _lastError;
 };

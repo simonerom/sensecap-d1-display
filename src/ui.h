@@ -2,70 +2,100 @@
 
 #include <lvgl.h>
 #include "data_fetcher.h"
+#include "settings_manager.h"
+#include "../include/config.h"
 
 // =============================================================================
-// UI Manager - gestisce le 3 pagine LVGL con swipe orizzontale
+// UIManager - 3-page LVGL UI with horizontal swipe
 //
-// Pagina 0: Data + Messaggio
-// Pagina 1: Meteo
-// Pagina 2: Alert
+// Page 0 (Clock & Env): Large time, date, indoor/outdoor temp+humidity
+// Page 1 (Message):     Greeting, daily message, weather, alert banner
+// Page 2 (Settings):    WiFi, server, timezone, Save button
 // =============================================================================
 
 class UIManager {
 public:
     UIManager();
 
-    // Inizializza LVGL e crea tutte le pagine
-    void init();
+    // Initialize LVGL and build all pages.
+    // settingsCallback is called when user taps Save on Page 3.
+    void init(void (*settingsCallback)(const AppSettings&) = nullptr);
 
-    // Aggiorna i contenuti con i nuovi dati
+    // Update display with new server/sensor data (call from network task under mutex)
     void updateData(const DisplayData& data);
 
-    // Mostra schermata di connessione WiFi in corso
-    void showConnecting();
+    // Update only indoor sensor values (call from sensor task under mutex)
+    void updateSensor(float tempC, float humidityPct, bool available);
 
-    // Mostra errore di rete
+    // Show WiFi connecting overlay
+    void showConnecting(const String& ssid);
+
+    // Show error overlay
     void showError(const String& msg);
 
-    // Da chiamare nel loop principale - gestisce LVGL tick
+    // Hide overlay (after WiFi connected)
+    void hideOverlay();
+
+    // Navigate to settings page (page index 2)
+    void goToSettings();
+
+    // LVGL timer handler — call from UI task every ~5ms
     void tick();
 
-    // Ritorna l'indice della pagina correntemente visualizzata (0-2)
+    // Pre-fill settings fields with current values
+    void populateSettings(const AppSettings& settings);
+
     int currentPage() const { return _currentPage; }
 
 private:
-    // Contenitori principali
+    // ---- Tabview ----
     lv_obj_t* _tabview;
-    lv_obj_t* _tabPage1;
-    lv_obj_t* _tabPage2;
-    lv_obj_t* _tabPage3;
-    lv_obj_t* _overlayScreen;  // Schermata overlay (connessione/errore)
+    lv_obj_t* _tabPage1;   // Clock & Env
+    lv_obj_t* _tabPage2;   // Message
+    lv_obj_t* _tabPage3;   // Settings
 
-    // Widgets pagina 1: Data + Messaggio
-    lv_obj_t* _lblDate;
-    lv_obj_t* _lblMessage;
-    lv_obj_t* _lblP1Status;
+    // ---- Page 1: Clock & Environment ----
+    lv_obj_t* _lblTime;           // HH:MM (48pt)
+    lv_obj_t* _lblDateStr;        // "Monday, March 2"
+    lv_obj_t* _lblIndoorTemp;     // indoor temperature
+    lv_obj_t* _lblIndoorHumidity; // indoor humidity
+    lv_obj_t* _lblOutdoorTemp;    // outdoor temperature
+    lv_obj_t* _lblOutdoorHumidity;// outdoor humidity
+    lv_obj_t* _lblSensorStatus;   // "No sensor" if unavailable
 
-    // Widgets pagina 2: Meteo
-    lv_obj_t* _lblWeatherIcon;
-    lv_obj_t* _lblWeatherText;
-    lv_obj_t* _lblP2Status;
+    // ---- Page 2: Message ----
+    lv_obj_t* _lblGreeting;       // "Good Morning/Afternoon/Evening"
+    lv_obj_t* _lblMessage;        // scrollable message
+    lv_obj_t* _lblWeatherIcon;    // weather emoji/symbol
+    lv_obj_t* _lblWeatherDesc;    // weather description text
+    lv_obj_t* _alertBanner;       // red banner container
+    lv_obj_t* _lblAlertText;      // alert text inside banner
 
-    // Widgets pagina 3: Alert
-    lv_obj_t* _lblAlertIcon;
-    lv_obj_t* _lblAlertText;
-    lv_obj_t* _lblP3Status;
+    // ---- Page 3: Settings ----
+    lv_obj_t* _taSSID;            // textarea: WiFi SSID
+    lv_obj_t* _taPassword;        // textarea: WiFi Password
+    lv_obj_t* _taHost;            // textarea: Server host
+    lv_obj_t* _taPort;            // textarea: Server port
+    lv_obj_t* _spinboxTZ;         // spinbox: timezone offset
+    lv_obj_t* _btnSave;           // Save & Reboot button
+    lv_obj_t* _keyboard;          // virtual keyboard
+    lv_obj_t* _activeTA;          // currently focused textarea
 
-    // Navigazione dots
-    lv_obj_t* _dotContainer;
-    lv_obj_t* _dots[3];
-
-    // Overlay
-    lv_obj_t* _lblOverlayMsg;
+    // ---- Overlay (WiFi connecting / error) ----
+    lv_obj_t* _overlayScreen;
     lv_obj_t* _spinnerOverlay;
+    lv_obj_t* _lblOverlayMsg;
 
-    int _currentPage;
-    bool _overlayVisible;
+    // ---- Nav dots ----
+    lv_obj_t* _dotContainer;
+    lv_obj_t* _dots[PAGE_COUNT];
+
+    // ---- Gear icon button (always on top) ----
+    lv_obj_t* _btnGear;
+
+    int   _currentPage;
+    bool  _overlayVisible;
+    void (*_settingsCallback)(const AppSettings&);
 
     void _createPage1(lv_obj_t* parent);
     void _createPage2(lv_obj_t* parent);
@@ -73,13 +103,21 @@ private:
     void _createNavDots(lv_obj_t* parent);
     void _updateNavDots(int activePage);
     void _createOverlay();
+    void _createGearButton(lv_obj_t* parent);
     void _applyDarkTheme();
+    void _showKeyboard(lv_obj_t* ta);
+    void _hideKeyboard();
 
-    // Callback cambio tab (per aggiornare i dots)
     static void _onTabChanged(lv_event_t* e);
+    static void _onTAFocused(lv_event_t* e);
+    static void _onKeyboardReady(lv_event_t* e);
+    static void _onSaveClicked(lv_event_t* e);
+    static void _onGearClicked(lv_event_t* e);
+    static void _onSpinboxIncrement(lv_event_t* e);
+    static void _onSpinboxDecrement(lv_event_t* e);
 };
 
-// Funzioni di setup LVGL (display + touch driver)
+// LVGL display + touch driver setup
 void lvgl_display_init();
 void lvgl_touch_init();
 void lvgl_tick_timer_init();

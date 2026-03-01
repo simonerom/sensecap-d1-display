@@ -5,9 +5,19 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
-DataFetcher::DataFetcher(const char* host, uint16_t port, const char* path, uint32_t timeout_ms)
-    : _host(host), _port(port), _path(path), _timeout_ms(timeout_ms),
-      _lastHttpCode(0) {}
+DataFetcher::DataFetcher()
+    : _port(DATA_ENDPOINT_PORT_DEFAULT), _timeout_ms(HTTP_TIMEOUT_MS),
+      _lastHttpCode(0) {
+    _host = DATA_ENDPOINT_HOST_DEFAULT;
+    _path = DATA_ENDPOINT_PATH;
+}
+
+void DataFetcher::configure(const String& host, uint16_t port, const String& path, uint32_t timeout_ms) {
+    _host = host;
+    _port = port;
+    _path = path;
+    _timeout_ms = timeout_ms;
+}
 
 bool DataFetcher::fetch(DisplayData& data) {
     data.valid = false;
@@ -17,10 +27,10 @@ bool DataFetcher::fetch(DisplayData& data) {
     WiFiClient client;
     client.setTimeout(_timeout_ms / 1000);
 
-    DEBUG_PRINTF("[HTTP] Connecting to %s:%d%s\n", _host, _port, _path);
+    DEBUG_PRINTF("[HTTP] Connecting to %s:%d%s\n", _host.c_str(), _port, _path.c_str());
 
-    if (!client.connect(_host, _port)) {
-        _lastError = "Connection failed to " + String(_host);
+    if (!client.connect(_host.c_str(), _port)) {
+        _lastError = "Connection failed to " + _host;
         DEBUG_PRINTLN("[HTTP] " + _lastError);
         return false;
     }
@@ -101,17 +111,22 @@ bool DataFetcher::fetch(DisplayData& data) {
         return false;
     }
 
-    data.date    = doc["date"]    | "";
-    data.message = doc["message"] | "";
-    data.weather = doc["weather"] | "";
-    data.alert   = doc["alert"]   | "";
-    data.valid   = true;
-    data.fetchedAt = millis();
+    data.time            = doc["time"]             | "";
+    data.date            = doc["date"]             | "";
+    data.message         = doc["message"]          | "";
+    data.weather         = doc["weather"]          | "";
+    data.tempOutdoor     = doc["temp_outdoor"]     | "";
+    data.humidityOutdoor = doc["humidity_outdoor"] | "";
+    data.alert           = doc["alert"]            | "";
+    data.valid           = true;
+    data.fetchedAt       = millis();
 
     DEBUG_PRINTLN("[HTTP] Data received OK");
+    DEBUG_PRINTF("[HTTP]   time:    %s\n", data.time.c_str());
     DEBUG_PRINTF("[HTTP]   date:    %s\n", data.date.c_str());
     DEBUG_PRINTF("[HTTP]   message: %s\n", data.message.c_str());
     DEBUG_PRINTF("[HTTP]   weather: %s\n", data.weather.c_str());
+    DEBUG_PRINTF("[HTTP]   outdoor: %s / %s%%\n", data.tempOutdoor.c_str(), data.humidityOutdoor.c_str());
     DEBUG_PRINTF("[HTTP]   alert:   %s\n", data.alert.c_str());
 
     return true;
