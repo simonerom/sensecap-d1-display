@@ -129,12 +129,16 @@ lv_obj_t* WidgetFactory::_buildCard(lv_obj_t* parent, const AttrMap& attrs) {
     lv_color_t bg  = _attrColor(attrs, "bg", 0x16213E);
     int radius     = _attrInt(attrs, "radius", 16);
     int pad        = _attrInt(attrs, "pad", 16);
+    int pad_h      = _attrInt(attrs, "pad_h", pad);  // horizontal override
+    int pad_v      = _attrInt(attrs, "pad_v", pad);  // vertical override
     bool scroll    = _attrBool(attrs, "scroll", false);
     int gap        = _attrInt(attrs, "gap", 8);
     String wStr    = _attr(attrs, "w", "100%");
     String hStr    = _attr(attrs, "h", "auto");
 
-    lv_obj_t* card = lv_hlp_card(parent, bg, (lv_coord_t)radius, (lv_coord_t)pad);
+    lv_obj_t* card = lv_hlp_card(parent, bg, (lv_coord_t)radius, 0);
+    lv_obj_set_style_pad_hor(card, (lv_coord_t)pad_h, 0);
+    lv_obj_set_style_pad_ver(card, (lv_coord_t)pad_v, 0);
     lv_hlp_flex_col(card, (lv_coord_t)gap);
 
     lv_coord_t w = _parseDim(wStr.c_str(), true);
