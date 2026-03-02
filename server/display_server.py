@@ -484,6 +484,7 @@ def build_data():
     return {
         "_version":   SPEC_VERSION,
         "updated_at": now.strftime("%H:%M"),
+        "updated_ts": int(now.timestamp()),
         "_timestamp": now.isoformat(),
 
         "outdoor_temp":    weather["outdoor_temp"],
@@ -566,7 +567,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
         </card>
       </col>
     </row>
-    <label text="agg. {updated_at}" font="12" color="#AAAAAA" align="right" w="100%"/>
+    <label text="agg. {data_age}" font="12" color="#AAAAAA" align="right" w="100%"/>
     <!-- Bottom: scrollable full buongiorno -->
     <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="14" w="100%" scroll="true" scrollbar="false" gap="16">
       <card bg="#FFF3E0" radius="6" pad="10" w="100%" visible="{scioperi_visible}">

@@ -69,8 +69,8 @@ public:
     // tzOffset: hours from UTC (-12..+14).
     void updateRtc(int8_t tzOffset);
 
-    // Update {indoor_temp} and {indoor_hum} from the Grove sensor.
-    void updateSensor(float tempC, float humPct, bool ok);
+    // Update {indoor_temp}, {indoor_hum}, {voc}, {co2} from sensors.
+    void updateSensor(float tempC, float humPct, bool ok, float tvoc = 0, float co2 = 0);
 
     // ---- Resolve ----
 
@@ -90,6 +90,7 @@ public:
 private:
     // Scalar values: key → current string value
     std::map<String, String> _values;
+    time_t                   _dataUpdatedTs = 0;
 
     // Scalar label registry: key → list of lv_obj_t* labels
     std::map<String, std::vector<lv_obj_t*>> _labels;
