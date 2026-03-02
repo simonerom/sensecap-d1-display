@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.6"
+SPEC_VERSION = "1.3.7"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -524,7 +524,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.3.6">
+<screens version="1.4.1">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
@@ -547,15 +547,17 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
         <label text="{day}" font="192" color="{day_color}" align="center" bold="true"/>
         <label text="{month_name}" font="28" color="#444444" align="center"/>
       </card>
-      <!-- Right col: VOC + spare -->
+      <!-- Right col: tVOC + CO2 -->
       <col flex="1" gap="10">
-        <card bg="#FFFFFF" radius="6" pad="16" flex="1">
-          <label text="VOC" font="18" color="#1A1A2E" bold="true" align="center"/>
+        <card bg="#FFFFFF" radius="6" pad="16" flex="1" valign="center">
+          <label text="tVOC" font="18" color="#1A1A2E" bold="true" align="center"/>
           <label text="{voc}" font="24" color="#00A885" align="center" bold="true"/>
+          <label text="idx" font="16" color="#888888" align="center"/>
         </card>
         <card bg="#FFFFFF" radius="6" pad="16" flex="1">
           <label text="CO2" font="18" color="#1A1A2E" bold="true" align="center"/>
           <label text="{co2}" font="24" color="#2B7DE9" align="center" bold="true"/>
+          <label text="{co2_unit}" font="16" color="#888888" align="center"/>
         </card>
       </col>
     </row>
