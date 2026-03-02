@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.12"
+SPEC_VERSION = "1.3.13"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -526,8 +526,8 @@ def build_data():
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <screens version="1.4.1">
 
-  <screen id="home" bg="#000000">
-    <row gap="10" pad="10" h="310">
+  <screen id="home" bg="#000000" pad="10">
+    <row gap="10" h="310">
       <!-- Left col: Interno + Esterno -->
       <col flex="1" gap="10">
         <card bg="#FFFFFF" radius="6" pad="16" flex="1">
@@ -566,7 +566,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       </col>
     </row>
     <!-- Bottom: scrollable full buongiorno -->
-    <card bg="#FFFFFF" radius="6" pad="14" w="100%" scroll="true" gap="16">
+    <card bg="#FFFFFF" radius="6" pad="14" w="100%" scroll="true" scrollbar="false" gap="16">
       <card bg="#FFF3E0" radius="6" pad="10" w="100%" visible="{scioperi_visible}">
         <label text="⚠ Scioperi in arrivo" font="18" color="#E65100" bold="true"/>
         <label text="{scioperi_text}" font="16" color="#BF360C" max_lines="0"/>
