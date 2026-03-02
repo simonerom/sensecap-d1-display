@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.3"
+SPEC_VERSION = "1.3.4"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -291,11 +291,25 @@ def _get_scioperi_summary():
             s = s.strip()
             if len(s) < 20: continue
             date_m = re.search(r"\b(\d{1,2}\s+(?:marzo|aprile|maggio|gennaio|febbraio))\b", s, re.IGNORECASE)
-            has_kw = any(w in s.lower() for w in ["atm","metro","tram","bus"]) and "sciopero" in s.lower()
+            has_kw = any(w in s.lower() for w in ["atm","metro","tram","bus","trasport","treno","aereo","generale"]) and "sciopero" in s.lower()
             if date_m and has_kw and re.match(r'^[A-ZÀ-Ú][a-zà-ú]', s):
                 date_str = date_m.group(1)
                 # Build compact line: "9 marzo: sciopero generale / ATM / trasporti"
-                line = f"{date_str}: sciopero ATM/metro"
+                # For ATM/metro: try to extract orari/fasce from the sentence
+                is_atm = any(w in s.lower() for w in ["atm","metro","tram","bus"])
+                if is_atm:
+                    # Extract duration (24 ore, dalle X alle Y)
+                    dur = re.search(r"(\d{1,2}) ore|intera giornata|24 ore", s, re.I)
+                    fasce = re.search(r"dalle (\d{1,2}[.:,]?\d{0,2}) alle (\d{1,2}[.:,]?\d{0,2})", s, re.I)
+                    if dur and "24" in dur.group(0): detail = " - 24h"
+                    elif dur and "intera" in dur.group(0): detail = " - intera giornata"
+                    elif fasce: detail = f" - dalle {fasce.group(1)} alle {fasce.group(2)}"
+                    else: detail = ""
+                    line = f"{date_str}: ATM/metro{detail}"
+                elif re.search(r"generale", s, re.I): line = f"{date_str}: sciopero generale"
+                elif re.search(r"aereo|volo", s, re.I): line = f"{date_str}: aerei"
+                elif re.search(r"treno|trenitalia|trenord", s, re.I): line = f"{date_str}: treni"
+                else: line = f"{date_str}: trasporti"
                 hits.append(line)
             if len(hits) >= 3:
                 break
@@ -466,7 +480,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.3.3">
+<screens version="1.3.4">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
