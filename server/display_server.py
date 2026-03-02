@@ -53,13 +53,46 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.0.2"
+SPEC_VERSION = "1.0.3"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
 DAYS_IT   = ["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"]
 MONTHS_IT = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno",
              "Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"]
+
+
+def is_italian_holiday(dt):
+    """Return True if dt is a weekend or Italian public holiday."""
+    if dt.weekday() >= 5:  # Sat=5, Sun=6
+        return True
+    d, m = dt.day, dt.month
+    # Fixed holidays
+    fixed = {(1,1),(6,1),(25,4),(1,5),(2,6),(15,8),(1,11),(8,12),(25,12),(26,12)}
+    if (d, m) in fixed:
+        return True
+    # Easter (Gauss algorithm)
+    y = dt.year
+    a = y % 19
+    b = y // 100
+    c = y % 100
+    d_ = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19*a + b - d_ - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2*e + 2*i - h - k) % 7
+    m_ = (a + 11*h + 22*l) // 451
+    month = (h + l - 7*m_ + 114) // 31
+    day   = ((h + l - 7*m_ + 114) % 31) + 1
+    from datetime import date
+    easter = date(y, month, day)
+    pasquetta = date(y, month, day) + timedelta(days=1)
+    if dt.date() in (easter, pasquetta.date() if hasattr(pasquetta,'date') else pasquetta):
+        return True
+    return False
 
 CONDITION_ICONS = {
     "sunny": "sunny", "clear": "sunny", "partly": "partly_cloudy",
@@ -368,17 +401,18 @@ def build_data():
         "message":   message,
         "curiosity": curiosity,
         "alert":     "",
+        "day_color":  "#E53935" if is_italian_holiday(now) else "#1A1A2E",
     }
 
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.0.2">
+<screens version="1.0.3">
 
   <screen id="home" bg="#F5F5F5">
     <card bg="#FFFFFF" radius="16" pad="20" w="100%">
       <label text="{month}" font="18" color="#888888" align="center"/>
-      <label text="{day}" font="96" color="#E53935" align="center" bold="true"/>
+      <label text="{day}" font="96" color="{day_color}" align="center" bold="true"/>
       <label text="{weekday}" font="18" color="#666666" align="center"/>
     </card>
     <row gap="12" pad="12">
