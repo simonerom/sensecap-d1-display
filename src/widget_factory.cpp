@@ -432,7 +432,6 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     // Italian day headers Mon-first
     static const char* dayNames[] = { "Lu","Ma","Me","Gi","Ve","Sa","Do" };
 
-    const int CELL_W = 62;
     const int CELL_H = 36;
 
     // Outer white card
@@ -453,7 +452,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         lv_label_set_text(lbl, dayNames[d]);
         lv_hlp_set_font(lbl, lv_hlp_font(13));
         lv_hlp_set_text_color(lbl, hdrCol);
-        lv_obj_set_width(lbl, CELL_W);
+        lv_obj_set_width(lbl, LV_PCT(14));
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
     }
 
@@ -463,12 +462,12 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     lv_obj_set_height(grid, LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(grid, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_style_pad_row(grid, 3, 0);
-    lv_obj_set_style_pad_column(grid, 3, 0);
+    lv_obj_set_style_pad_column(grid, 0, 0);
 
     lv_obj_t** cells = (lv_obj_t**)malloc(42 * sizeof(lv_obj_t*));
     for (int i = 0; i < 42; i++) {
         lv_obj_t* cell = lv_obj_create(grid);
-        lv_obj_set_size(cell, CELL_W, CELL_H);
+        lv_obj_set_size(cell, LV_PCT(14), CELL_H);
         lv_hlp_set_bg(cell, cellBg);
         lv_hlp_set_border_none(cell);
         lv_hlp_set_radius(cell, 3);
@@ -484,15 +483,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
 
-        // Event dot: pinned to bottom-center
-        lv_obj_t* dot = lv_obj_create(cell);
-        lv_obj_set_size(dot, 18, 3);
-        lv_hlp_set_bg(dot, dotCol);
-        lv_hlp_set_border_none(dot);
-        lv_hlp_set_radius(dot, 2);
-        lv_obj_set_style_align(dot, LV_ALIGN_BOTTOM_MID, 0);
-        lv_obj_set_style_y(dot, -3, 0);
-        lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
+
 
         cells[i] = cell;
     }
@@ -517,14 +508,13 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
             int day = i - startDow + 1;
             lv_obj_t* cell = capturedCells[i];
             lv_obj_t* lbl  = lv_obj_get_child(cell, 0);
-            lv_obj_t* dot  = lv_obj_get_child(cell, 1);
             if (!lbl) continue;
 
             if (day < 1 || day > daysInMonth) {
                 lv_label_set_text(lbl, "");
                 lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
                 lv_hlp_set_bg(cell, capturedCellBg, LV_OPA_TRANSP);
-                if (dot) lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
+
             } else {
                 char buf[4];
                 snprintf(buf, sizeof(buf), "%d", day);
@@ -542,19 +532,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
                     lv_color_t tc = isHol ? lv_hlp_hex(0xD32F2F) : capturedTxt;
                     lv_hlp_set_text_color(lbl, tc);
                 }
-                // Event dot
-                if (dot) {
-                    bool hasEv = state->evDays.count(day) > 0;
-                    if (hasEv && !isToday) {
-                        lv_hlp_set_bg(dot, capturedDot);
-                        lv_obj_clear_flag(dot, LV_OBJ_FLAG_HIDDEN);
-                    } else if (hasEv && isToday) {
-                        lv_hlp_set_bg(dot, lv_color_white());
-                        lv_obj_clear_flag(dot, LV_OBJ_FLAG_HIDDEN);
-                    } else {
-                        lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
-                    }
-                }
+
             }
         }
     };

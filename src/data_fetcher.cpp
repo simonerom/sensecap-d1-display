@@ -193,18 +193,11 @@ bool DataFetcher::_parseDataJson(const String& body, DataPayload& out) {
         }
     }
 
-    // events array → "HH:MM  date  Title" strings
+    // events array — now plain strings "TITLE|||Marzo 15, 13:00 - 13:30"
     if (doc["events"].is<JsonArray>()) {
         std::vector<String> items;
-        for (JsonObject ev : doc["events"].as<JsonArray>()) {
-            String line;
-            const char* t = ev["time"] | "";
-            const char* d = ev["date"] | "";
-            const char* title = ev["title"] | "";
-            if (t[0]) { line += t; line += "  "; }
-            if (d[0]) { line += d; line += "  "; }
-            line += title;
-            items.push_back(line);
+        for (JsonVariant ev : doc["events"].as<JsonArray>()) {
+            items.push_back(ev.as<String>());
         }
         out.arrays["events"] = items;
     }
