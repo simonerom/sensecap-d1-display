@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.2"
+SPEC_VERSION = "1.3.3"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -291,22 +291,28 @@ def _get_scioperi_summary():
             s = s.strip()
             if len(s) < 20: continue
             date_m = re.search(r"\b(\d{1,2}\s+(?:marzo|aprile|maggio|gennaio|febbraio))\b", s, re.IGNORECASE)
-            has_kw = any(w in s.lower() for w in ["sciopero","atm","metro","trasport","bus","tram"])
+            has_kw = any(w in s.lower() for w in ["atm","metro","tram","bus"]) and "sciopero" in s.lower()
             if date_m and has_kw and re.match(r'^[A-ZÀ-Ú][a-zà-ú]', s):
                 date_str = date_m.group(1)
                 # Build compact line: "9 marzo: sciopero generale / ATM / trasporti"
-                kw_found = []
-                if re.search(r"generale", s, re.I): kw_found.append("sciopero generale")
-                elif re.search(r"\batm\b", s, re.I): kw_found.append("ATM")
-                elif re.search(r"\baereo|aeroporto|volo\b", s, re.I): kw_found.append("aerei")
-                elif re.search(r"treno|trenitalia|trenord", s, re.I): kw_found.append("treni")
-                elif re.search(r"trasport", s, re.I): kw_found.append("trasporti")
-                else: kw_found.append("mezzi pubblici")
-                line = f"{date_str}: {', '.join(kw_found)}"
+                line = f"{date_str}: sciopero ATM/metro"
                 hits.append(line)
             if len(hits) >= 3:
                 break
-        return hits if hits else []
+        # Deduplicate and remove past dates
+        from datetime import date as _date
+        today = _date.today()
+        MONTHS = {"gennaio":1,"febbraio":2,"marzo":3,"aprile":4,"maggio":5,"giugno":6,
+                  "luglio":7,"agosto":8,"settembre":9,"ottobre":10,"novembre":11,"dicembre":12}
+        seen = set(); filtered = []
+        for h in hits:
+            m = re.match(r"(\d{1,2}) (\w+):", h)
+            if m:
+                d, mon = int(m.group(1)), MONTHS.get(m.group(2).lower(), 0)
+                if mon and _date(today.year, mon, d) <= today: continue
+            if h not in seen:
+                seen.add(h); filtered.append(h)
+        return filtered[:3] if filtered else []
     except:
         return []
 
@@ -460,7 +466,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.3.2">
+<screens version="1.3.3">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
