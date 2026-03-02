@@ -162,7 +162,7 @@ def get_weather():
             d = json.loads(r.read())
 
         cur = d["current"]
-        temp = round(cur["temperature_2m"])
+        temp = cur["temperature_2m"]
         hum  = cur["relative_humidity_2m"]
         code = cur["weathercode"]
         wind = round(cur["windspeed_10m"])
@@ -224,7 +224,7 @@ def get_weather():
             })
 
         return {
-            "outdoor_temp": f"{temp}°C",
+            "outdoor_temp": f"{temp:.1f}°C",
             "outdoor_hum":  f"{hum}%",
             "condition":    condition,
             "condition_icon": icon,
@@ -596,7 +596,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <col flex="1" gap="10">
         <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" flex="1">
           <label text="Interno" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{indoor_temp}" font="24" color="#5B21B6" align="center" bold="true"/>
+          <label text="{indoor_temp}" font="20" color="#5B21B6" align="center" bold="true"/>
           <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
         </card>
         <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" flex="1">
