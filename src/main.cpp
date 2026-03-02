@@ -199,16 +199,17 @@ void setup() {
                       DATA_ENDPOINT_PATH,
                       HTTP_TIMEOUT_MS);
 
-    // If no settings saved yet, redirect to settings page
-    if (!hasSettings) {
-        DEBUG_PRINTLN("[Main] First boot - redirecting to Settings page.");
-        ui.goToSettings();
-    }
-
     // Start FreeRTOS tasks
-    xTaskCreatePinnedToCore(taskUI,      "UI",      8192,  nullptr, 2, nullptr, 1);
-    xTaskCreatePinnedToCore(taskNetwork, "Network", 16384, nullptr, 1, nullptr, 0);
-    xTaskCreatePinnedToCore(taskSensor,  "Sensor",  4096,  nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskUI,     "UI",     8192,  nullptr, 2, nullptr, 1);
+    xTaskCreatePinnedToCore(taskSensor, "Sensor", 4096,  nullptr, 1, nullptr, 0);
+
+    // On first boot (no NVS settings), go straight to Settings — skip network.
+    if (!hasSettings) {
+        DEBUG_PRINTLN("[Main] First boot - showing Settings page, skipping network.");
+        ui.goToSettings();
+    } else {
+        xTaskCreatePinnedToCore(taskNetwork, "Network", 16384, nullptr, 1, nullptr, 0);
+    }
 
     DEBUG_PRINTLN("[Main] Tasks started.");
 }
