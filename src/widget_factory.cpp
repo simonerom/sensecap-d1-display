@@ -220,8 +220,11 @@ lv_obj_t* WidgetFactory::_buildLabel(lv_obj_t* parent, const AttrMap& attrs) {
     lv_obj_set_style_pad_all(lbl, 0, 0);
     // flex="1" → grow to fill row; otherwise full width for wrapping
     uint8_t flexGrow = 0;
+    String wAttr = _attr(attrs, "w", "");
     if (_hasFlex(attrs, flexGrow) && flexGrow > 0) {
         lv_hlp_flex_grow(lbl, flexGrow);
+    } else if (wAttr == "auto" || wAttr == "content") {
+        lv_obj_set_width(lbl, LV_SIZE_CONTENT);
     } else {
         lv_obj_set_width(lbl, LV_PCT(100));
     }

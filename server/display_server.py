@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.25"
+SPEC_VERSION = "1.3.26"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -385,19 +385,22 @@ def get_news():
 
 MONTHS_IT_FULL = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno",
                    "Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"]
+DAYS_IT_FULL   = ["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"]
 
 def _fmt_event_date(dtstart, dtend):
-    """Return 'Marzo 15, 13:00 - 13:30' or 'Marzo 15' for all-day."""
+    """Return 'Martedì 3 Marzo, 19:00 - 20:00' or 'Martedì 3 Marzo' for all-day."""
     if isinstance(dtstart, date) and not isinstance(dtstart, datetime):
-        # all-day
-        return f"{MONTHS_IT_FULL[dtstart.month-1]} {dtstart.day}"
+        wd = DAYS_IT_FULL[dtstart.weekday()]
+        mo = MONTHS_IT_FULL[dtstart.month-1]
+        return f"{wd} {dtstart.day} {mo}"
+    wd = DAYS_IT_FULL[dtstart.weekday()]
     mo = MONTHS_IT_FULL[dtstart.month - 1]
     day = dtstart.day
     t1 = dtstart.strftime("%H:%M")
     if dtend and isinstance(dtend, datetime):
         t2 = dtend.strftime("%H:%M")
-        return f"{mo} {day}, {t1} - {t2}"
-    return f"{mo} {day}, {t1}"
+        return f"{wd} {day} {mo}, {t1} - {t2}"
+    return f"{wd} {day} {mo}, {t1}"
 
 def get_events():
     try:
@@ -654,13 +657,13 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <!-- Header: mese a sinistra, temp a destra -->
     <row gap="0" h="36" w="100%">
       <label text="{month_name} {cal_year}" font="22" bold="true" color="#1A1A2E" flex="1"/>
-      <label text="▲ {indoor_temp}  ☁ {outdoor_temp}" font="18" color="#5B21B6" bold="true"/>
+      <label text="▲ {indoor_temp}  ☁ {outdoor_temp}" font="18" color="#5B21B6" bold="true" w="auto"/>
     </row>
     <calendar_grid today="{cal_today}" startdow="{cal_startdow}" days="{cal_days}" event_days="{event_days}" holiday_days="{holiday_days}"
       highlight_color="#D63384" text_color="#1A1A2E" header_color="#888888" cell_bg="#EFEFEF"/>
     <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="12" w="100%" scroll="true" scrollbar="false">
       <label text="Prossimi eventi" font="16" color="#5B21B6" bold="true"/>
-      <events_list items="{events}" font="15" color="#1A1A2E" date_color="#5B21B6"/>
+      <events_list items="{events}" font="15" color="#1A1A2E" date_color="#555555"/>
     </card>
   </screen>
 
