@@ -54,7 +54,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.2.0"
+SPEC_VERSION = "1.2.1"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -442,7 +442,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.2.0">
+<screens version="1.2.1">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
@@ -450,17 +450,17 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <col flex="1" gap="10">
         <card bg="#FFFFFF" radius="16" pad="16" flex="1">
           <label text="Interno" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{indoor_temp}" font="32" color="#00A885" align="center" bold="true"/>
+          <label text="{indoor_temp}" font="24" color="#00A885" align="center" bold="true"/>
           <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
         </card>
         <card bg="#FFFFFF" radius="16" pad="16" flex="1">
           <label text="Esterno" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{outdoor_temp}" font="32" color="#2B7DE9" align="center" bold="true"/>
+          <label text="{outdoor_temp}" font="24" color="#2B7DE9" align="center" bold="true"/>
           <label text="{outdoor_hum}" font="16" color="#888888" align="center"/>
         </card>
       </col>
       <!-- Center: tall date card -->
-      <card bg="#FFFFFF" radius="16" pad_h="8" pad_v="8" gap="0" tight="true" flex="2">
+      <card bg="#FFFFFF" radius="16" pad_h="8" pad_v="8" gap="0" tight="true" flex="2" h="100%">
         <label text="{weekday}" font="22" color="#444444" align="center"/>
         <label text="{day}" font="96" color="{day_color}" align="center" bold="true"/>
         <label text="{month_name}" font="22" color="#444444" align="center"/>
@@ -469,11 +469,11 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <col flex="1" gap="10">
         <card bg="#FFFFFF" radius="16" pad="16" flex="1">
           <label text="VOC" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{voc}" font="32" color="#00A885" align="center" bold="true"/>
+          <label text="{voc}" font="24" color="#00A885" align="center" bold="true"/>
         </card>
         <card bg="#FFFFFF" radius="16" pad="16" flex="1">
           <label text="CO2" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{co2}" font="32" color="#2B7DE9" align="center" bold="true"/>
+          <label text="{co2}" font="24" color="#2B7DE9" align="center" bold="true"/>
         </card>
       </col>
     </row>
