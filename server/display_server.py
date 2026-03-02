@@ -15,6 +15,24 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import caldav
 import pytz
 
+
+def strip_emoji(text):
+    """Remove emoji and non-latin characters, keep ASCII + accented latin."""
+    import unicodedata
+    result = []
+    for ch in text:
+        cat = unicodedata.category(ch)
+        cp  = ord(ch)
+        # Keep: ASCII printable, accented latin (U+00C0–U+024F), common punctuation
+        if (0x20 <= cp <= 0x7E) or (0x00C0 <= cp <= 0x024F) or (0x2018 <= cp <= 0x201F) or cp == 0xB0:
+            result.append(ch)
+        elif cat in ("Zs",):  # spaces
+            result.append(" ")
+        # else: drop (emoji, symbols, CJK, etc.)
+    # Collapse multiple spaces
+    import re as _re
+    return _re.sub(r" {2,}", " ", "".join(result)).strip()
+
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
 SPEC_VERSION = "1.0.0"
@@ -161,7 +179,8 @@ def _parse_rss_titles(raw, skip=1, limit=4):
     if not titles:
         titles = _re.findall(r'<title>(.*?)</title>', raw, _re.DOTALL)
     titles = [_re.sub(r'<!\[CDATA\[|\]\]>', '', t).strip() for t in titles]
-    titles = [t for t in titles if t and len(t) > 10]
+    titles = [strip_emoji(t) for t in titles if t and len(t) > 10]
+    titles = [t for t in titles if len(t) > 10]
     return titles[skip:skip + limit]
 
 def get_news():
