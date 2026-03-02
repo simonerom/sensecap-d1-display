@@ -3,7 +3,8 @@
 #include <Arduino.h>
 
 // Grove I2C temperature/humidity sensor driver
-// Supports SHT40/SHT31 (0x44, 0x45, 0x48) with fallback to DHT20 (0x38)
+// Supports SHT40 (0x44, 0x45) with fallback to DHT20/AHT20 (0x38).
+// Note: built-in SGP41/SCD41 sensors are managed by the RP2040, not the ESP32.
 class GroveSensor {
 public:
     enum Type { NONE, SHT40, DHT20 };
@@ -14,10 +15,9 @@ public:
     Type begin(uint8_t sda, uint8_t scl);
 
     // Read sensor. Returns true on success.
-    // temperature in Celsius, humidity in %RH
     bool read(float& temperature, float& humidity);
 
-    Type sensorType() const { return _type; }
+    Type sensorType()  const { return _type; }
     bool isAvailable() const { return _type != NONE; }
 
 private:

@@ -30,12 +30,14 @@
 // =============================================================================
 // Grove port shares the main I2C bus (SDA=39, SCL=40) with PCA9535 and FT5x06.
 // GPIO 2 and 3 are RGB display data lines (R1/R2) and cannot be used for I2C.
+// Built-in air quality sensors: SGP41 (0x59) and SCD41 (0x62) on same bus.
 #define GROVE_SDA_PIN       39
 #define GROVE_SCL_PIN       40
 #define SHT40_ADDR          0x44
 #define SHT40_ADDR_ALT1     0x45
-#define SHT40_ADDR_ALT2     0x48   // SHT31 with ADDR=HIGH
 #define DHT20_ADDR          0x38
+#define SGP41_ADDR          0x59   // tVOC + NOx index
+#define SCD41_ADDR          0x62   // CO2 + T + H (compensated)
 #define SENSOR_POLL_MS      5000   // read sensor every 5 seconds
 
 // =============================================================================

@@ -147,7 +147,7 @@ The server sends an XML file describing the UI. The firmware parses it and build
     <row gap="12" pad="16">
       <card flex="1" bg="#16213E" radius="16" pad="12">
         <label text="🌡️ Interno" font="13" color="#AAAAAA" align="center"/>
-        <label text="{indoor_temp}" font="28" color="#00D4AA" align="center" bold="true"/>
+        <label text="{indoor_temp}" font="24" color="#00D4AA" align="center" bold="true"/>
         <label text="{indoor_hum}" font="14" color="#AAAAAA" align="center"/>
       </card>
       <card flex="1" bg="#16213E" radius="16" pad="12">

@@ -21,6 +21,7 @@
 #include "wifi_manager.h"
 #include "data_fetcher.h"
 #include "grove_sensor.h"
+#include "rp2040_comm.h"
 #include "settings_manager.h"
 
 // =============================================================================
@@ -30,6 +31,7 @@ static ScreenManager   screenMgr;
 static WiFiManager     wifiMgr;
 static DataFetcher     fetcher;
 static GroveSensor     sensor;
+static RP2040Comm      rp2040;
 static SettingsManager settingsMgr;
 static AppSettings     appSettings;
 
@@ -90,25 +92,49 @@ void taskUI(void* pvParams) {
 // FreeRTOS task: Grove sensor (Core 0)
 // =============================================================================
 void taskSensor(void* pvParams) {
+    // Init RP2040 UART communication (built-in sensors: AHT20, SCD41, SGP41)
+    rp2040.begin();
+
+    // Optionally probe external Grove T/H sensor
     GroveSensor::Type sType = sensor.begin(GROVE_SDA_PIN, GROVE_SCL_PIN);
-    bool available = (sType != GroveSensor::NONE);
-    DEBUG_PRINTF("[Sensor] type=%d available=%d\n", (int)sType, available);
-    if (!available) screenMgr.postSensorUpdate(0, 0, false);
+    bool groveAvailable = (sType != GroveSensor::NONE);
+    DEBUG_PRINTF("[Sensor] Grove type=%d available=%d\n", (int)sType, groveAvailable);
 
     static uint32_t lastMs = 0;
     for (;;) {
+        // Always poll RP2040 UART (processes incoming bytes)
+        rp2040.poll();
+
         uint32_t now = millis();
         if (now - lastMs >= SENSOR_POLL_MS) {
             lastMs = now;
-            if (available) {
-                float t = 0, h = 0;
-                bool ok = sensor.read(t, h);
-                screenMgr.postSensorUpdate(t, h, ok);
-                if (ok) DEBUG_PRINTF("[Sensor] T=%.1fC  H=%.0f%%\n", t, h);
-                else    DEBUG_PRINTLN("[Sensor] Read failed");
+
+            RP2040Data rpData = rp2040.getData();
+
+            // Use AHT20 from RP2040 as primary T/H source; fall back to Grove
+            float t = 0, h = 0;
+            bool ok = false;
+            if (rpData.aht20_valid) {
+                t  = rpData.aht20_temp;
+                h  = rpData.aht20_hum;
+                ok = true;
+            } else if (groveAvailable) {
+                ok = sensor.read(t, h);
+            }
+
+            float tvoc = rpData.tvoc_valid  ? rpData.tvoc      : 0;
+            float co2  = rpData.scd41_valid ? rpData.scd41_co2 : 0;
+
+            screenMgr.postSensorUpdate(t, h, ok, tvoc, co2);
+
+            if (ok) {
+                DEBUG_PRINTF("[Sensor] T=%.1fC  H=%.0f%%  tVOC=%.0f  CO2=%.0f ppm\n",
+                             t, h, tvoc, co2);
+            } else {
+                DEBUG_PRINTLN("[Sensor] No T/H data");
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
 
@@ -263,6 +289,8 @@ void setup() {
         screenMgr.buildFromXml(cachedXml.c_str(), cachedXml.length());
     } else {
         DEBUG_PRINTLN("[Main] No cached layout, using fallback UI.");
+        // Force re-fetch by clearing cached version so network task won't skip it
+        cachedLayoutVersion = "";
         screenMgr.buildFallback("Fetching layout from server...");
     }
 
