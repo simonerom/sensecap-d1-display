@@ -1,31 +1,34 @@
 #include "grove_sensor.h"
 #include "../include/config.h"
 
+// Grove sensor uses Wire1 (I2C bus 1, SDA=2/SCL=3) to avoid conflict with
+// the display I2C bus (Wire on SDA=39/SCL=40 for PCA9535 and FT5x06).
+#define GROVE_WIRE Wire1
 #include <Wire.h>
 
 GroveSensor::GroveSensor() : _type(NONE) {}
 
 GroveSensor::Type GroveSensor::begin(uint8_t sda, uint8_t scl) {
-    Wire.begin(sda, scl);
-    Wire.setClock(100000);
+    GROVE_WIRE.begin(sda, scl);
+    GROVE_WIRE.setClock(100000);
 
     // Try SHT40 first (0x44)
-    Wire.beginTransmission(SHT40_ADDR);
-    if (Wire.endTransmission() == 0) {
+    GROVE_WIRE.beginTransmission(SHT40_ADDR);
+    if (GROVE_WIRE.endTransmission() == 0) {
         _type = SHT40;
         DEBUG_PRINTLN("[Sensor] SHT40 detected at 0x44");
         return _type;
     }
 
     // Try DHT20 (0x38)
-    Wire.beginTransmission(DHT20_ADDR);
-    if (Wire.endTransmission() == 0) {
+    GROVE_WIRE.beginTransmission(DHT20_ADDR);
+    if (GROVE_WIRE.endTransmission() == 0) {
         _type = DHT20;
         DEBUG_PRINTLN("[Sensor] DHT20 detected at 0x38");
         // DHT20 initialization: send 0x71 status check
-        Wire.beginTransmission(DHT20_ADDR);
-        Wire.write(0x71);
-        Wire.endTransmission();
+        GROVE_WIRE.beginTransmission(DHT20_ADDR);
+        GROVE_WIRE.write(0x71);
+        GROVE_WIRE.endTransmission();
         delay(10);
         return _type;
     }
@@ -44,16 +47,16 @@ bool GroveSensor::read(float& temperature, float& humidity) {
 // ---- SHT40 ----
 // Measure high precision: command 0xFD, read 6 bytes after 10ms
 bool GroveSensor::_readSHT40(float& t, float& h) {
-    Wire.beginTransmission(SHT40_ADDR);
-    Wire.write(0xFD);  // measure high precision
-    if (Wire.endTransmission() != 0) return false;
+    GROVE_WIRE.beginTransmission(SHT40_ADDR);
+    GROVE_WIRE.write(0xFD);  // measure high precision
+    if (GROVE_WIRE.endTransmission() != 0) return false;
 
     delay(10);
 
-    if (Wire.requestFrom((uint8_t)SHT40_ADDR, (uint8_t)6) != 6) return false;
+    if (GROVE_WIRE.requestFrom((uint8_t)SHT40_ADDR, (uint8_t)6) != 6) return false;
 
     uint8_t buf[6];
-    for (int i = 0; i < 6; i++) buf[i] = Wire.read();
+    for (int i = 0; i < 6; i++) buf[i] = GROVE_WIRE.read();
 
     // bytes 0-1: temp raw, byte 2: CRC
     // bytes 3-4: humi raw, byte 5: CRC
@@ -71,18 +74,18 @@ bool GroveSensor::_readSHT40(float& t, float& h) {
 // ---- DHT20 ----
 // Trigger measurement: {0xAC, 0x33, 0x00}, wait 80ms, read 7 bytes
 bool GroveSensor::_readDHT20(float& t, float& h) {
-    Wire.beginTransmission(DHT20_ADDR);
-    Wire.write(0xAC);
-    Wire.write(0x33);
-    Wire.write(0x00);
-    if (Wire.endTransmission() != 0) return false;
+    GROVE_WIRE.beginTransmission(DHT20_ADDR);
+    GROVE_WIRE.write(0xAC);
+    GROVE_WIRE.write(0x33);
+    GROVE_WIRE.write(0x00);
+    if (GROVE_WIRE.endTransmission() != 0) return false;
 
     delay(80);
 
-    if (Wire.requestFrom((uint8_t)DHT20_ADDR, (uint8_t)7) != 7) return false;
+    if (GROVE_WIRE.requestFrom((uint8_t)DHT20_ADDR, (uint8_t)7) != 7) return false;
 
     uint8_t buf[7];
-    for (int i = 0; i < 7; i++) buf[i] = Wire.read();
+    for (int i = 0; i < 7; i++) buf[i] = GROVE_WIRE.read();
 
     // Check busy bit (bit 7 of byte 0)
     if (buf[0] & 0x80) return false;

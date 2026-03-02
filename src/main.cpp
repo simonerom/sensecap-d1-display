@@ -1,100 +1,110 @@
+// =============================================================================
+// main.cpp — SenseCAP Indicator D1 Pro Firmware (Dashboard v2)
+//
+// FreeRTOS tasks:
+//   taskUI      (Core 1, prio 2) — LVGL tick + ScreenManager::tick()
+//   taskNetwork (Core 0, prio 1) — WiFi, fetchLayout, fetchData
+//   taskSensor  (Core 0, prio 1) — Grove sensor polling
+//
+// No shared mutex: cross-task communication via ScreenManager UI queue.
+// =============================================================================
 #include <Arduino.h>
 #include <Wire.h>
+#include <SPIFFS.h>
+#include <Preferences.h>
 #include <esp_timer.h>
+#include <time.h>
 
 #include "../include/config.h"
+#include "ui.h"
+#include "screen_manager.h"
 #include "wifi_manager.h"
 #include "data_fetcher.h"
 #include "grove_sensor.h"
 #include "settings_manager.h"
-#include "ui.h"
 
 // =============================================================================
 // Global instances
 // =============================================================================
+static ScreenManager   screenMgr;
 static WiFiManager     wifiMgr;
 static DataFetcher     fetcher;
-static UIManager       ui;
 static GroveSensor     sensor;
 static SettingsManager settingsMgr;
 static AppSettings     appSettings;
 
-static DisplayData     currentData;
-
 // Timing
 static uint32_t lastFetchMs  = 0;
-static uint32_t lastSensorMs = 0;
 static bool     firstFetch   = true;
 
-// Mutex for shared data access across tasks
-static SemaphoreHandle_t dataMutex = nullptr;
+// Layout version tracking (compared against X-Layout-Version header)
+static String   cachedLayoutVersion = "";
 
 // =============================================================================
-// Settings save callback (called from UI task when user taps Save)
+// Settings callbacks (called from UI task — safe to access LVGL here via queue)
 // =============================================================================
-static void onSettingsSaved(const AppSettings& newSettings) {
+static void onSettingsSaved(const AppSettings& s) {
     DEBUG_PRINTLN("[Main] Settings saved, rebooting...");
-    settingsMgr.save(newSettings);
+    settingsMgr.save(s);
     delay(500);
     ESP.restart();
 }
 
-// =============================================================================
-// Calibration done callback (called from UI task when calibration completes)
-// =============================================================================
 static void onCalibrationSaved(const TouchCalibration& cal) {
     settingsMgr.saveCalibration(cal);
     DEBUG_PRINTLN("[Main] Touch calibration saved to NVS.");
 }
 
 // =============================================================================
-// FreeRTOS task: UI (core 1)
+// Layout XML persistence helpers (SPIFFS)
+// =============================================================================
+static bool loadLayoutFromSpiffs(String& outXml) {
+    if (!SPIFFS.exists(LAYOUT_SPIFFS_PATH)) return false;
+    File f = SPIFFS.open(LAYOUT_SPIFFS_PATH, "r");
+    if (!f) return false;
+    outXml = f.readString();
+    f.close();
+    DEBUG_PRINTF("[Main] Loaded layout from SPIFFS (%u bytes).\n", outXml.length());
+    return outXml.length() > 0;
+}
+
+static void saveLayoutToSpiffs(const char* xml, size_t len) {
+    File f = SPIFFS.open(LAYOUT_SPIFFS_PATH, "w");
+    if (!f) { DEBUG_PRINTLN("[Main] Failed to open SPIFFS for write."); return; }
+    f.write((const uint8_t*)xml, len);
+    f.close();
+    DEBUG_PRINTF("[Main] Saved layout to SPIFFS (%u bytes).\n", len);
+}
+
+// =============================================================================
+// FreeRTOS task: UI (Core 1)
 // =============================================================================
 void taskUI(void* pvParams) {
     for (;;) {
-        ui.tick();
+        screenMgr.tick();
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
 // =============================================================================
-// FreeRTOS task: Grove sensor polling (core 0)
+// FreeRTOS task: Grove sensor (Core 0)
 // =============================================================================
 void taskSensor(void* pvParams) {
-    // Initialize Grove I2C sensor
     GroveSensor::Type sType = sensor.begin(GROVE_SDA_PIN, GROVE_SCL_PIN);
     bool available = (sType != GroveSensor::NONE);
+    if (!available) screenMgr.postSensorUpdate(0, 0, false);
 
-    if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-        if (available) {
-            currentData.sensorAvailable = false; // will be true after first read
-        } else {
-            currentData.sensorAvailable = false;
-            ui.updateSensor(0, 0, false);
-        }
-        xSemaphoreGive(dataMutex);
-    }
-
+    static uint32_t lastMs = 0;
     for (;;) {
         uint32_t now = millis();
-        if (now - lastSensorMs >= SENSOR_POLL_MS) {
-            lastSensorMs = now;
-
+        if (now - lastMs >= SENSOR_POLL_MS) {
+            lastMs = now;
             if (available) {
                 float t = 0, h = 0;
                 bool ok = sensor.read(t, h);
-                if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-                    currentData.tempIndoor     = ok ? t : 0;
-                    currentData.humidityIndoor = ok ? h : 0;
-                    currentData.sensorAvailable = ok;
-                    ui.updateSensor(t, h, ok);
-                    xSemaphoreGive(dataMutex);
-                }
-                if (ok) {
-                    DEBUG_PRINTF("[Sensor] T=%.1f°C  H=%.0f%%\n", t, h);
-                } else {
-                    DEBUG_PRINTLN("[Sensor] Read failed");
-                }
+                screenMgr.postSensorUpdate(t, h, ok);
+                if (ok) DEBUG_PRINTF("[Sensor] T=%.1fC  H=%.0f%%\n", t, h);
+                else    DEBUG_PRINTLN("[Sensor] Read failed");
             }
         }
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -102,65 +112,75 @@ void taskSensor(void* pvParams) {
 }
 
 // =============================================================================
-// FreeRTOS task: Network + polling (core 0)
+// FreeRTOS task: Network (Core 0)
 // =============================================================================
 void taskNetwork(void* pvParams) {
-    // Show WiFi connecting overlay
-    if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-        ui.showConnecting(appSettings.wifiSSID);
-        xSemaphoreGive(dataMutex);
-    }
+    // Show connecting overlay
+    screenMgr.postShowConnecting(appSettings.wifiSSID);
 
-    DEBUG_PRINTF("[Main] Connecting WiFi: %s\n", appSettings.wifiSSID.c_str());
+    DEBUG_PRINTF("[Net] Connecting WiFi: %s\n", appSettings.wifiSSID.c_str());
     bool connected = wifiMgr.connect(appSettings.wifiSSID.c_str(),
                                       appSettings.wifiPassword.c_str(),
                                       WIFI_TIMEOUT_MS);
-
     if (!connected) {
-        DEBUG_PRINTLN("[Main] WiFi connection failed — redirecting to Settings.");
-        if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-            ui.hideOverlay();
-            ui.goToSettings();
-            xSemaphoreGive(dataMutex);
-        }
-        vTaskDelete(nullptr);  // stop network task, user must reconfigure
+        DEBUG_PRINTLN("[Net] WiFi failed — go to Settings.");
+        screenMgr.postHideOverlay();
+        screenMgr.postGoToSettings();
+        vTaskDelete(nullptr);
         return;
-    } else {
-        if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-            ui.hideOverlay();
-            xSemaphoreGive(dataMutex);
-        }
     }
 
-    for (;;) {
-        uint32_t now = millis();
-        bool shouldFetch = firstFetch || (now - lastFetchMs >= POLL_INTERVAL_MS);
+    // Sync NTP time (needed for RTC placeholders)
+    configTime(0, 0, "pool.ntp.org", "time.google.com");
+    DEBUG_PRINTLN("[Net] NTP sync started.");
 
-        if (shouldFetch && wifiMgr.ensureConnected()) {
-            DEBUG_PRINTLN("[Main] Fetching data...");
-            DisplayData newData;
-            // Preserve sensor values across fetch
-            if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-                newData.tempIndoor      = currentData.tempIndoor;
-                newData.humidityIndoor  = currentData.humidityIndoor;
-                newData.sensorAvailable = currentData.sensorAvailable;
-                xSemaphoreGive(dataMutex);
+    screenMgr.postHideOverlay();
+
+    for (;;) {
+        if (!wifiMgr.ensureConnected()) {
+            vTaskDelay(pdMS_TO_TICKS(30000));
+            continue;
+        }
+
+        uint32_t now = millis();
+        bool shouldFetch = firstFetch ||
+                           (now - lastFetchMs >= POLL_INTERVAL_MS) ||
+                           screenMgr.consumeRefreshRequest();
+
+        if (shouldFetch) {
+            // ---- Fetch layout XML (only if version changed) ----
+            String newVersion;
+            size_t xmlLen = 0;
+            char* xmlBuf = fetcher.fetchLayout(cachedLayoutVersion, newVersion, xmlLen);
+
+            if (xmlBuf) {
+                // New version received — save to SPIFFS and rebuild UI
+                cachedLayoutVersion = newVersion;
+                saveLayoutToSpiffs(xmlBuf, xmlLen);
+
+                // Save version to NVS
+                Preferences prefs;
+                prefs.begin(NVS_NAMESPACE, false);
+                prefs.putString(NVS_KEY_LAYOUT_VER, newVersion);
+                prefs.end();
+
+                screenMgr.postRebuildLayout(xmlBuf, xmlLen);
+                // xmlBuf is freed by ScreenManager after rebuild
+            } else if (!fetcher.lastError().isEmpty()) {
+                DEBUG_PRINTF("[Net] Layout fetch error: %s\n", fetcher.lastError().c_str());
             }
 
-            bool ok = fetcher.fetch(newData);
-
-            if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                if (ok) {
-                    currentData = newData;
-                    ui.updateData(currentData);
-                    DEBUG_PRINTLN("[Main] UI updated.");
-                } else {
-                    DEBUG_PRINTF("[Main] Fetch failed: %s\n", fetcher.lastError().c_str());
-                    if (!currentData.valid) {
-                        ui.showError("Data error:\n" + fetcher.lastError());
-                    }
+            // ---- Fetch data.json ----
+            DEBUG_PRINTLN("[Net] Fetching data.json...");
+            DataPayload* payload = new DataPayload();
+            if (fetcher.fetchData(*payload)) {
+                screenMgr.postDataUpdate(payload);
+            } else {
+                delete payload;
+                DEBUG_PRINTF("[Net] Data fetch failed: %s\n", fetcher.lastError().c_str());
+                if (firstFetch) {
+                    screenMgr.postShowError("Data error:\n" + fetcher.lastError());
                 }
-                xSemaphoreGive(dataMutex);
             }
 
             lastFetchMs = now;
@@ -172,87 +192,99 @@ void taskNetwork(void* pvParams) {
 }
 
 // =============================================================================
-// Setup
+// setup
 // =============================================================================
 void setup() {
     Serial.begin(SERIAL_BAUD);
     delay(500);
     DEBUG_PRINTLN("\n========================================");
-    DEBUG_PRINTLN(" SenseCAP Indicator D1 Pro - Firmware");
+    DEBUG_PRINTLN(" SenseCAP Indicator D1 Pro — v2");
     DEBUG_PRINTLN("========================================");
     DEBUG_PRINTF(" Build: %s %s\n", __DATE__, __TIME__);
     DEBUG_PRINTF(" CPU: %d MHz  PSRAM: %d KB\n",
-                 ESP.getCpuFreqMHz(),
-                 ESP.getPsramSize() / 1024);
+                 ESP.getCpuFreqMHz(), ESP.getPsramSize() / 1024);
 
-    // Mutex for shared data access
-    dataMutex = xSemaphoreCreateMutex();
+    // SPIFFS for layout XML caching
+    if (!SPIFFS.begin(true)) {
+        DEBUG_PRINTLN("[Main] SPIFFS mount failed — reformatting...");
+        SPIFFS.format();
+        SPIFFS.begin(true);
+    }
 
     // Load settings from NVS
     bool hasSettings = settingsMgr.load(appSettings);
-    // Treat default placeholder SSID as unconfigured
     if (appSettings.wifiSSID == WIFI_SSID_DEFAULT) hasSettings = false;
-    DEBUG_PRINTF("[Main] NVS settings loaded: configured=%d\n", hasSettings);
+    DEBUG_PRINTF("[Main] NVS settings: configured=%d\n", hasSettings);
 
-    // Initialize display, touch and LVGL
+    // Load cached layout version from NVS
+    {
+        Preferences prefs;
+        prefs.begin(NVS_NAMESPACE, true);
+        cachedLayoutVersion = prefs.getString(NVS_KEY_LAYOUT_VER, "");
+        prefs.end();
+        DEBUG_PRINTF("[Main] Cached layout version: '%s'\n", cachedLayoutVersion.c_str());
+    }
+
+    // Hardware init
     DEBUG_PRINTLN("[Main] Init display...");
     lvgl_display_init();
-
     DEBUG_PRINTLN("[Main] Init touch...");
     lvgl_touch_init();
     lvgl_tick_timer_init();
 
-    // I2C scan — after touch init so Wire is ready, delay so monitor connects
+    // I2C scan (after touch init, brief delay for serial monitor)
     delay(2000);
-    DEBUG_PRINTLN("[I2C] Scanning bus SDA=39 SCL=40...");
+    DEBUG_PRINTLN("[I2C] Scanning SDA=39 SCL=40...");
     for (uint8_t addr = 1; addr < 127; addr++) {
         Wire.beginTransmission(addr);
-        if (Wire.endTransmission() == 0) {
-            DEBUG_PRINTF("[I2C] Found device at 0x%02X\n", addr);
-        }
+        if (Wire.endTransmission() == 0)
+            DEBUG_PRINTF("[I2C] Device at 0x%02X\n", addr);
     }
-    DEBUG_PRINTLN("[I2C] Scan done.");
+    DEBUG_PRINTLN("[I2C] Done.");
 
-    // Initialize UI with settings-save and calibration callbacks
-    DEBUG_PRINTLN("[Main] Init UI...");
-    ui.init(onSettingsSaved, onCalibrationSaved);
+    // Init ScreenManager with callbacks
+    screenMgr.init(onSettingsSaved, onCalibrationSaved);
 
-    // Pre-fill settings page with current values
-    ui.populateSettings(appSettings);
-
-    // Load and apply touch calibration if saved
+    // Apply touch calibration from NVS
     TouchCalibration cal;
     if (settingsMgr.loadCalibration(cal)) {
-        ui.applyCalibration(cal);
+        screenMgr.applyCalibration(cal);
         DEBUG_PRINTLN("[Main] Touch calibration applied.");
     }
 
-    // Configure data fetcher with saved settings
-    fetcher.configure(appSettings.serverHost,
-                      appSettings.serverPort,
-                      DATA_ENDPOINT_PATH,
-                      HTTP_TIMEOUT_MS);
+    // Configure fetcher
+    fetcher.configure(appSettings.serverHost, appSettings.serverPort, HTTP_TIMEOUT_MS);
+
+    // Build UI from cached XML (fast start), or fallback if not cached
+    String cachedXml;
+    if (loadLayoutFromSpiffs(cachedXml) && cachedXml.length() > 0) {
+        DEBUG_PRINTLN("[Main] Building UI from cached layout...");
+        screenMgr.buildFromXml(cachedXml.c_str(), cachedXml.length());
+    } else {
+        DEBUG_PRINTLN("[Main] No cached layout, using fallback UI.");
+        screenMgr.buildFallback("Fetching layout from server...");
+    }
+
+    // Pre-fill settings form
+    screenMgr.populateSettings(appSettings);
+    screenMgr.setTzOffset(appSettings.timezoneOffset);
 
     // Start FreeRTOS tasks
-    xTaskCreatePinnedToCore(taskUI,     "UI",     8192,  nullptr, 2, nullptr, 1);
+    xTaskCreatePinnedToCore(taskUI,     "UI",     12288, nullptr, 2, nullptr, 1);
     xTaskCreatePinnedToCore(taskSensor, "Sensor", 4096,  nullptr, 1, nullptr, 0);
 
-    // On first boot (no NVS settings), go straight to Settings — skip network.
     if (!hasSettings) {
-        DEBUG_PRINTLN("[Main] First boot - showing Settings page, skipping network.");
-        if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-            ui.goToSettings();
-            xSemaphoreGive(dataMutex);
-        }
+        DEBUG_PRINTLN("[Main] First boot — showing Settings.");
+        screenMgr.postGoToSettings();
     } else {
-        xTaskCreatePinnedToCore(taskNetwork, "Network", 16384, nullptr, 1, nullptr, 0);
+        xTaskCreatePinnedToCore(taskNetwork, "Network", 20480, nullptr, 1, nullptr, 0);
     }
 
     DEBUG_PRINTLN("[Main] Tasks started.");
 }
 
 // =============================================================================
-// Main loop (unused)
+// loop (unused)
 // =============================================================================
 void loop() {
     vTaskDelay(pdMS_TO_TICKS(10000));

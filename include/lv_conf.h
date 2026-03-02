@@ -19,9 +19,12 @@
 /*====================
    MEMORY SETTINGS
  *====================*/
-#define LV_MEM_CUSTOM 0
-#define LV_MEM_SIZE (128U * 1024U)  /* 128 KB */
-#define LV_MEM_ADR 0
+/* Use custom allocator so LVGL heap lives in PSRAM (avoids 192 KB DRAM overflow) */
+#define LV_MEM_CUSTOM 1
+#define LV_MEM_CUSTOM_INCLUDE <esp_heap_caps.h>
+#define LV_MEM_CUSTOM_ALLOC(size)       heap_caps_malloc((size), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+#define LV_MEM_CUSTOM_FREE(p)           heap_caps_free(p)
+#define LV_MEM_CUSTOM_REALLOC(p, size)  heap_caps_realloc((p), (size), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
 
 /*====================
    HAL SETTINGS
@@ -101,11 +104,11 @@
 #define LV_FONT_MONTSERRAT_18 1
 #define LV_FONT_MONTSERRAT_20 0
 #define LV_FONT_MONTSERRAT_22 1
-#define LV_FONT_MONTSERRAT_24 0
+#define LV_FONT_MONTSERRAT_24 1
 #define LV_FONT_MONTSERRAT_26 0
 #define LV_FONT_MONTSERRAT_28 1
 #define LV_FONT_MONTSERRAT_30 0
-#define LV_FONT_MONTSERRAT_32 0
+#define LV_FONT_MONTSERRAT_32 1
 #define LV_FONT_MONTSERRAT_34 0
 #define LV_FONT_MONTSERRAT_36 0
 #define LV_FONT_MONTSERRAT_38 0
@@ -181,7 +184,7 @@
 #define LV_USE_SPINBOX 1
 #define LV_USE_SPINNER 1
 #define LV_USE_TABVIEW 1
-#define LV_USE_TILEVIEW 0
+#define LV_USE_TILEVIEW 1
 #define LV_USE_WIN 0
 
 /*==================
@@ -201,7 +204,7 @@
    LAYOUT SUPPORT
  *===================*/
 #define LV_USE_FLEX 1
-#define LV_USE_GRID 0
+#define LV_USE_GRID 1
 
 /*======================
    3rd PARTY LIBRARIES

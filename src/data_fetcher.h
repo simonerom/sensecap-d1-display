@@ -1,45 +1,54 @@
+// =============================================================================
+// data_fetcher.h — HTTP client for /layout.xml and /data.json
+// =============================================================================
 #pragma once
 
 #include <Arduino.h>
+#include <map>
+#include <vector>
 
-// Data structure returned from the JSON endpoint
-struct DisplayData {
-    // From server JSON
-    String time;             // "HH:MM"
-    String date;             // "Monday, March 2"
-    String message;          // daily message / greeting
-    String weather;          // weather description
-    String tempOutdoor;      // "12C"
-    String humidityOutdoor;  // "65"
-    String alert;            // alert text, empty if none
-
-    // From Grove sensor (local, updated separately)
-    float  tempIndoor;
-    float  humidityIndoor;
-    bool   sensorAvailable;
-
-    bool     valid;       // true if server data received successfully
-    uint32_t fetchedAt;   // millis() at time of fetch
+// Parsed data.json payload
+struct DataPayload {
+    std::map<String, String>              scalars;  // flat key→value strings
+    std::map<String, std::vector<String>> arrays;   // "news", "events" (flattened to strings)
+    bool     valid     = false;
+    uint32_t fetchedAt = 0;
 };
 
 class DataFetcher {
 public:
     DataFetcher();
 
-    // Configure host/port/path at runtime (from NVS settings)
-    void configure(const String& host, uint16_t port, const String& path, uint32_t timeout_ms);
+    // Configure server at runtime (from NVS settings)
+    void configure(const String& host, uint16_t port, uint32_t timeout_ms);
 
-    // Perform fetch and populate 'data'. Returns true on success.
-    bool fetch(DisplayData& data);
+    // Fetch /layout.xml — returns PSRAM-allocated null-terminated buffer.
+    // Caller MUST call ps_free() on the returned pointer when done.
+    // cachedVersion: in — version string previously received (e.g. "1.0.0"); empty = first fetch.
+    // outVersion: out — receives the X-Layout-Version header from response.
+    // Returns nullptr if version is unchanged (cachedVersion == server version) or on error.
+    // Check lastError().isEmpty() to distinguish "unchanged" from "error".
+    char* fetchLayout(const String& cachedVersion, String& outVersion, size_t& outLen);
 
-    int lastHttpCode() const { return _lastHttpCode; }
-    const String& lastError() const { return _lastError; }
+    // Fetch /data.json and parse into DataPayload.
+    bool fetchData(DataPayload& out);
+
+    const String& lastError()    const { return _lastError; }
+    int           lastHttpCode() const { return _lastHttpCode; }
 
 private:
     String   _host;
-    uint16_t _port;
-    String   _path;
-    uint32_t _timeout_ms;
-    int      _lastHttpCode;
+    uint16_t _port    = 8765;
+    uint32_t _timeout = 5000;
     String   _lastError;
+    int      _lastHttpCode = 0;
+
+    // Core HTTP GET. Populates _lastHttpCode and _lastError.
+    // Returns the response body (headers stripped). Empty on error.
+    // outEtag: if non-null, filled with ETag response header value.
+    String _httpGet(const char* path,
+                    const char* extraHeaders = nullptr,
+                    String* outEtag = nullptr);
+
+    bool _parseDataJson(const String& body, DataPayload& out);
 };

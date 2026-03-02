@@ -11,14 +11,19 @@
 // DEFAULT HTTP ENDPOINT (overridden by NVS settings)
 // =============================================================================
 #define DATA_ENDPOINT_HOST_DEFAULT  "192.168.1.100"
-#define DATA_ENDPOINT_PORT_DEFAULT  8080
-#define DATA_ENDPOINT_PATH          "/display.json"
+#define DATA_ENDPOINT_PORT_DEFAULT  8765
+#define DATA_ENDPOINT_PATH          "/data.json"
+#define LAYOUT_ENDPOINT_PATH        "/layout.xml"
 
 // Polling interval in milliseconds (default: 60 seconds)
 #define POLL_INTERVAL_MS    60000
 
 // HTTP timeout in milliseconds
 #define HTTP_TIMEOUT_MS     5000
+
+// Layout XML caching (SPIFFS)
+#define LAYOUT_SPIFFS_PATH    "/layout.xml"   // file path in SPIFFS
+#define LAYOUT_SPEC_VERSION   "1.0.0"         // expected spec major version
 
 // =============================================================================
 // GROVE SENSOR (I2C)
@@ -46,12 +51,15 @@
 #define NVS_KEY_TZ          "timezone"
 #define NVS_KEY_VALID       "configured"
 
-// Touch calibration NVS keys (stored as raw ADC integer values × 1000)
+// Touch calibration NVS keys
 #define NVS_KEY_CAL_VALID   "cal_valid"
-#define NVS_KEY_CAL_X0      "cal_x0"   // raw X at left edge
-#define NVS_KEY_CAL_X1      "cal_x1"   // raw X at right edge
-#define NVS_KEY_CAL_Y0      "cal_y0"   // raw Y at top edge
-#define NVS_KEY_CAL_Y1      "cal_y1"   // raw Y at bottom edge
+#define NVS_KEY_CAL_X0      "cal_x0"
+#define NVS_KEY_CAL_X1      "cal_x1"
+#define NVS_KEY_CAL_Y0      "cal_y0"
+#define NVS_KEY_CAL_Y1      "cal_y1"
+
+// Layout version cache (NVS key stores last-seen X-Layout-Version string)
+#define NVS_KEY_LAYOUT_VER  "layout_ver"
 
 // =============================================================================
 // DISPLAY
@@ -92,6 +100,11 @@
 // Navigation dot sizes
 #define NAV_DOT_SIZE    8
 #define NAV_DOT_GAP     16
+
+// Swipe gesture thresholds
+#define SWIPE_MIN_DIST_PX    60    // minimum displacement px to count as swipe
+#define SWIPE_MAX_MS         600   // swipe must complete within this time
+#define SWIPE_AXIS_RATIO     2.0f  // primary axis must be 2x secondary to avoid diagonals
 
 // =============================================================================
 // DEBUG
