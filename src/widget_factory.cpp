@@ -158,7 +158,7 @@ lv_obj_t* WidgetFactory::_buildCard(lv_obj_t* parent, const AttrMap& attrs) {
         lv_color_t bc = _attrColor(attrs, "border_color", 0xFFFFFF);
         lv_obj_set_style_border_color(card, bc, 0);
         lv_obj_set_style_border_width(card, borderW, 0);
-        lv_obj_set_style_border_opa(card, LV_OPA_40, 0);
+        lv_obj_set_style_border_opa(card, LV_OPA_70, 0);
     }
     if (tight) {
         lv_obj_set_style_pad_row(card, 0, 0);
