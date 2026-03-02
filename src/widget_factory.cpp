@@ -452,7 +452,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         lv_label_set_text(lbl, dayNames[d]);
         lv_hlp_set_font(lbl, lv_hlp_font(13));
         lv_hlp_set_text_color(lbl, hdrCol);
-        lv_obj_set_width(lbl, LV_PCT(14));
+        lv_obj_set_width(lbl, LV_PCT(13));
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
     }
 
@@ -462,12 +462,12 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     lv_obj_set_height(grid, LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(grid, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_style_pad_row(grid, 3, 0);
-    lv_obj_set_style_pad_column(grid, 0, 0);
+    lv_obj_set_style_pad_column(grid, 3, 0);
 
     lv_obj_t** cells = (lv_obj_t**)malloc(42 * sizeof(lv_obj_t*));
     for (int i = 0; i < 42; i++) {
         lv_obj_t* cell = lv_obj_create(grid);
-        lv_obj_set_size(cell, LV_PCT(14), CELL_H);
+        lv_obj_set_size(cell, LV_PCT(13), CELL_H);
         lv_hlp_set_bg(cell, cellBg);
         lv_hlp_set_border_none(cell);
         lv_hlp_set_radius(cell, 3);
