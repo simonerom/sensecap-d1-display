@@ -154,25 +154,38 @@ def get_crypto():
         empty = {"symbol":"--","price":"--","change":"--","trend":"down"}
         return {"btc": empty, "eth": empty, "iotx": empty}
 
+def _parse_rss_titles(raw, skip=1, limit=4):
+    """Extract titles from RSS feed (handles CDATA and plain)."""
+    import re as _re
+    titles = _re.findall(r'<title><!\[CDATA\[(.*?)\]\]></title>', raw, _re.DOTALL)
+    if not titles:
+        titles = _re.findall(r'<title>(.*?)</title>', raw, _re.DOTALL)
+    titles = [_re.sub(r'<!\[CDATA\[|\]\]>', '', t).strip() for t in titles]
+    titles = [t for t in titles if t and len(t) > 10]
+    return titles[skip:skip + limit]
+
 def get_news():
     news = []
-    # International — BBC
-    try:
-        with urllib.request.urlopen("https://feeds.bbci.co.uk/news/world/rss.xml", timeout=6) as r:
-            titles = re.findall(r'<title><!\[CDATA\[(.*?)\]\]></title>', r.read().decode())
-            news += titles[1:4]
-    except: pass
-    # Italy — ANSA
-    try:
-        with urllib.request.urlopen("https://www.ansa.it/sito/ansait_rss.xml", timeout=6) as r:
-            raw = r.read().decode()
-            titles = re.findall(r'<title><!\[CDATA\[(.*?)\]\]></title>', raw)
-            if not titles:
-                titles = re.findall(r'<title>(.*?)</title>', raw)
-            titles = [re.sub(r'<!\[CDATA\[|\]\]>', '', t).strip() for t in titles]
-            news += titles[1:3]
-    except: pass
-    return news[:8]
+    feeds = [
+        ("https://news.google.com/rss/search?q=mondo&hl=it&gl=IT&ceid=IT:it", 1, 3),
+        ("https://www.ansa.it/sito/ansait_rss.xml", 1, 3),
+        ("https://www.repubblica.it/rss/homepage/rss2.0.xml", 0, 2),
+    ]
+    for url, skip, limit in feeds:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=7) as r:
+                raw = r.read().decode("utf-8", errors="replace")
+            news += _parse_rss_titles(raw, skip=skip, limit=limit)
+        except:
+            pass
+    seen = set()
+    result = []
+    for t in news:
+        if t not in seen:
+            seen.add(t)
+            result.append(t)
+    return result[:8]
 
 def get_events():
     try:
@@ -214,7 +227,7 @@ def get_curiosity(now):
     }
     key = (now.month, now.day)
     return curiosities.get(key, 
-        "Lo sapevi? Il cervello umano elabora le immagini 60.000 volte più velocemente del testo. Ecco perché una bella UI vale più di mille parole. 🧠")
+        "Lo sapevi? Il cervello umano elabora le immagini 60.000 volte più velocemente del testo. Ecco perché una bella UI vale più di mille parole.")
 
 def build_roberta_note(now, rain_morning, rain_evening):
     """Return commute warning if today is Tue/Thu and rain is likely."""
@@ -223,14 +236,14 @@ def build_roberta_note(now, rain_morning, rain_evening):
         return ""
     notes = []
     if rain_morning >= 40:
-        notes.append(f"Andata 8:30–9:00: 🌧️ Pioggia ({rain_morning}%) — porta l'ombrello!")
+        notes.append(f"Andata 8:30–9:00: ~ Pioggia ({rain_morning}%) — porta l'ombrello!")
     else:
-        notes.append(f"Andata 8:30–9:00: ☀️ Ok ({rain_morning}%)")
+        notes.append(f"Andata 8:30–9:00: * Ok ({rain_morning}%)")
     end_time = "17:00–17:30" if weekday == 4 else "17:30–18:00"
     if rain_evening >= 40:
-        notes.append(f"Ritorno {end_time}: 🌧️ Pioggia ({rain_evening}%) — occhio!")
+        notes.append(f"Ritorno {end_time}: ~ Pioggia ({rain_evening}%) — occhio!")
     else:
-        notes.append(f"Ritorno {end_time}: ☀️ Ok ({rain_evening}%)")
+        notes.append(f"Ritorno {end_time}: * Ok ({rain_evening}%)")
     return "\n".join(notes)
 
 def get_scioperi():
@@ -253,7 +266,7 @@ def build_message(now, weather, events, scioperi):
     elif hour < 18: greeting = "Buon pomeriggio"
     else:           greeting = "Buonasera"
 
-    parts = [f"{greeting}, Simone! 👋"]
+    parts = [f"{greeting}, Simone!"]
 
     # Weather summary
     parts.append(f"Fuori: {weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}")
@@ -261,17 +274,17 @@ def build_message(now, weather, events, scioperi):
     # Roberta commute note
     roberta = build_roberta_note(now, weather["rain_morning"], weather["rain_evening"])
     if roberta:
-        parts.append(f"\n👜 Roberta, se oggi vai in ufficio:\n{roberta}")
+        parts.append(f"\n>> Roberta, se oggi vai in ufficio:\n{roberta}")
 
     # Scioperi
     if scioperi:
-        parts.append(f"\n🚇 Trasporti: {'; '.join(scioperi)}")
+        parts.append(f"\n>> Trasporti: {'; '.join(scioperi)}")
 
     # Today's events
     today_str = now.strftime("%-d %b").lower()
     today_events = [e for e in events if e["date"] == today_str]
     if today_events:
-        parts.append(f"\n📅 Oggi:")
+        parts.append(f"\n[ Oggi ]")
         for e in today_events:
             parts.append(f"  {e['time']} — {e['title']}")
 
@@ -333,30 +346,30 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </card>
     <row gap="12" pad="12">
       <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="🌡️ Interno" font="13" color="#666666" align="center"/>
+        <label text="~ Interno" font="13" color="#666666" align="center"/>
         <label text="{indoor_temp}" font="28" color="#00A885" align="center" bold="true"/>
         <label text="{indoor_hum}" font="13" color="#888888" align="center"/>
       </card>
       <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="🌤️ Esterno" font="13" color="#666666" align="center"/>
+        <label text="* Esterno" font="13" color="#666666" align="center"/>
         <label text="{outdoor_temp}" font="28" color="#2B7DE9" align="center" bold="true"/>
         <label text="{outdoor_hum}" font="13" color="#888888" align="center"/>
       </card>
     </row>
     <card bg="#FFFFFF" radius="16" pad="16" w="100%" scroll="true">
-      <label text="☀️ Aggiornamenti" font="18" color="#1A1A2E" bold="true"/>
+      <label text=">> Aggiornamenti" font="18" color="#1A1A2E" bold="true"/>
       <label text="{message}" font="15" color="#444444" max_lines="0"/>
-      <label text="🌍 Curiosità" font="18" color="#1A1A2E" bold="true"/>
+      <label text=">> Curiosita" font="18" color="#1A1A2E" bold="true"/>
       <label text="{curiosity}" font="14" color="#555555"/>
-      <label text="💰 Mercati" font="18" color="#1A1A2E" bold="true"/>
+      <label text="$ Mercati" font="18" color="#1A1A2E" bold="true"/>
       <crypto_row symbol="{btc_symbol}" price="{btc_price}" change="{btc_change}" trend="{btc_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{eth_symbol}" price="{eth_price}" change="{eth_change}" trend="{eth_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{iotx_symbol}" price="{iotx_price}" change="{iotx_change}" trend="{iotx_trend}" up_color="#00A885" down_color="#E53935"/>
-      <label text="📰 Notizie" font="18" color="#1A1A2E" bold="true"/>
+      <label text="## Notizie" font="18" color="#1A1A2E" bold="true"/>
       <list items="{news}" font="14" color="#333333" divider="#DDDDDD" max_lines="2"/>
     </card>
     <card bg="#E53935" radius="12" pad="12" w="100%" visible="{alert_visible}">
-      <label text="⚠️ {alert}" font="16" color="#FFFFFF" align="center"/>
+      <label text="(!) {alert}" font="16" color="#FFFFFF" align="center"/>
     </card>
   </screen>
 
@@ -364,17 +377,17 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <calendar_grid year="{cal_year}" month="{cal_month}" today="{cal_today}"
       highlight_color="#00A885" text_color="#1A1A2E" header_color="#888888"/>
     <card bg="#FFFFFF" radius="16" pad="16" w="100%" scroll="true">
-      <label text="📅 Prossimi eventi" font="18" color="#1A1A2E" bold="true"/>
+      <label text="[ Prossimi eventi ]" font="18" color="#1A1A2E" bold="true"/>
       <events_list items="{events}" font="15" color="#1A1A2E" date_color="#00A885"/>
     </card>
     <row gap="12" pad="12">
       <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="🌡️ Interno" font="13" color="#666666" align="center"/>
+        <label text="~ Interno" font="13" color="#666666" align="center"/>
         <label text="{indoor_temp}" font="24" color="#00A885" align="center" bold="true"/>
         <label text="{indoor_hum}" font="13" color="#888888" align="center"/>
       </card>
       <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="🌤️ Esterno" font="13" color="#666666" align="center"/>
+        <label text="* Esterno" font="13" color="#666666" align="center"/>
         <label text="{outdoor_temp}" font="24" color="#2B7DE9" align="center" bold="true"/>
         <label text="{outdoor_hum}" font="13" color="#888888" align="center"/>
       </card>
@@ -386,12 +399,12 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <label text="{weekday} {day} {month}" font="20" color="#666666" align="center"/>
     <row gap="12" pad="16">
       <card flex="1" bg="#FFFFFF" radius="16" pad="16">
-        <label text="🌡️ Interno" font="13" color="#666666" align="center"/>
+        <label text="~ Interno" font="13" color="#666666" align="center"/>
         <label text="{indoor_temp}" font="32" color="#00A885" align="center" bold="true"/>
         <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
       </card>
       <card flex="1" bg="#FFFFFF" radius="16" pad="16">
-        <label text="🌤️ Esterno" font="13" color="#666666" align="center"/>
+        <label text="* Esterno" font="13" color="#666666" align="center"/>
         <label text="{outdoor_temp}" font="32" color="#2B7DE9" align="center" bold="true"/>
         <label text="{condition}" font="13" color="#888888" align="center"/>
       </card>
