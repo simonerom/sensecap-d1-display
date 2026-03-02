@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.4"
+SPEC_VERSION = "1.3.5"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -444,44 +444,50 @@ def build_roberta_note(now, rain_morning, rain_evening):
 
 
 def build_meteo_summary(now, weather, events):
-    parts = []
-    # Line 1: condition + temp + wind
-    parts.append(f"{weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}")
-
-    # Line 2: today rain + forecast
+    """Returns dict of separate meteo fields for bold/regular layout."""
     fc = weather.get("forecast", [])
+
+    line1 = f"{weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}"
+
+    today_str_fc = ""
     if fc:
-        today_fc = fc[0]
-        precip = today_fc.get("precip", 0) or 0
+        t = fc[0]
+        precip = t.get("precip", 0) or 0
         prob = weather.get("rain_max_today", 0)
-        if prob >= 20 or precip >= 1:
-            rain_str = f"pioggia {prob}% ({precip:.0f}mm)"
-        else:
-            rain_str = "nessuna pioggia"
-        parts.append(f"Oggi: {today_fc['desc']}, {today_fc['max']}°/{today_fc['min']}°C — {rain_str}")
+        rain = f"pioggia {prob}% ({precip:.0f}mm)" if (prob >= 20 or precip >= 1) else "nessuna pioggia"
+        today_str_fc = f"{t['desc']}, {t['max']}°/{t['min']}°C — {rain}"
+
+    tomorrow_str = ""
     if len(fc) > 1:
-        tmr = fc[1]
-        precip_tmr = tmr.get("precip", 0) or 0
-        prob_tmr = weather.get("rain_max_tomorrow", 0)
-        if prob_tmr >= 20 or precip_tmr >= 1:
-            rain_tmr = f"pioggia {prob_tmr}% ({precip_tmr:.0f}mm)"
-        else:
-            rain_tmr = "nessuna pioggia"
-        parts.append(f"Domani: {tmr['desc']}, {tmr['max']}°/{tmr['min']}°C — {rain_tmr}")
+        t = fc[1]
+        precip = t.get("precip", 0) or 0
+        prob = weather.get("rain_max_tomorrow", 0)
+        rain = f"pioggia {prob}% ({precip:.0f}mm)" if (prob >= 20 or precip >= 1) else "nessuna pioggia"
+        tomorrow_str = f"{t['desc']}, {t['max']}°/{t['min']}°C — {rain}"
 
-    # Roberta commute note
     roberta = build_roberta_note(now, weather["rain_morning"], weather["rain_evening"])
-    if roberta:
-        parts.append(f"\n▶ Roberta, se oggi vai in ufficio:\n{roberta}")
 
-    # Today's events
-    today_str = now.strftime("%-d %b").lower()
-    today_events = [e for e in events if e["date"] == today_str]
+    today_date = now.strftime("%-d %b").lower()
+    today_events = [e for e in events if e["date"] == today_date]
+    events_str = ""
     if today_events:
-        parts.append("\n◉ Oggi:")
-        for e in today_events:
-            parts.append(f"  {e['time']} - {e['title']}")
-    return "\n".join(parts)
+        events_str = "\n".join(f"{e['time']} {e['title']}" for e in today_events)
+
+    # Also build flat summary for backward compat
+    flat = line1
+    if today_str_fc:  flat += f"\nOggi: {today_str_fc}"
+    if tomorrow_str:  flat += f"\nDomani: {tomorrow_str}"
+    if roberta:       flat += f"\n{roberta}"
+    if events_str:    flat += f"\nAgenda: {events_str}"
+
+    return {
+        "line1": strip_emoji(line1),
+        "today": strip_emoji(today_str_fc),
+        "tomorrow": strip_emoji(tomorrow_str),
+        "roberta": strip_emoji(roberta) if roberta else "",
+        "events": strip_emoji(events_str),
+        "flat": strip_emoji(flat),
+    }
 
 # ─── Data builder ─────────────────────────────────────────────────────────────
 
@@ -491,7 +497,8 @@ def build_data():
     crypto  = get_crypto()
     news     = get_news()
     events   = get_events()
-    meteo_summary = build_meteo_summary(now, weather, events)
+    meteo = build_meteo_summary(now, weather, events)
+    meteo_summary = meteo["flat"]  # backward compat
     curiosity = get_curiosity(now)
 
     return {
@@ -525,7 +532,14 @@ def build_data():
         "scioperi_text": "\n".join(news["scioperi"]) if news["scioperi"] else "",
         "scioperi_visible": "true" if news["scioperi"] else "false",
         "events":    events,
-        "meteo_summary": strip_emoji(meteo_summary),
+        "meteo_summary": meteo["flat"],
+        "meteo_line1":   meteo["line1"],
+        "meteo_today":   meteo["today"],
+        "meteo_tomorrow":meteo["tomorrow"],
+        "meteo_roberta": meteo["roberta"],
+        "meteo_events":  meteo["events"],
+        "meteo_roberta_visible": "true" if meteo["roberta"] else "false",
+        "meteo_events_visible":  "true" if meteo["events"] else "false",
         "curiosity": strip_emoji(curiosity),
         "month_name": MONTHS_IT[now.month - 1],
         "voc":       "--",
@@ -537,7 +551,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.3.4">
+<screens version="1.3.5">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
@@ -579,7 +593,17 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
         <label text="{scioperi_text}" font="16" color="#BF360C" max_lines="0"/>
       </card>
       <label text="☁ Meteo" font="22" color="#1A1A2E" bold="true"/>
-      <label text="{meteo_summary}" font="18" color="#444444" max_lines="0"/>
+      <label text="{meteo_line1}" font="18" color="#333333"/>
+      <row gap="6">
+        <label text="Oggi:" font="18" bold="true" color="#1A1A2E" w="60"/>
+        <label text="{meteo_today}" font="18" color="#444444" flex="1" max_lines="0"/>
+      </row>
+      <row gap="6">
+        <label text="Domani:" font="18" bold="true" color="#1A1A2E" w="76"/>
+        <label text="{meteo_tomorrow}" font="18" color="#444444" flex="1" max_lines="0"/>
+      </row>
+      <label text="{meteo_roberta}" font="16" color="#1565C0" max_lines="0" visible="{meteo_roberta_visible}"/>
+      <label text="{meteo_events}" font="16" color="#555555" max_lines="0" visible="{meteo_events_visible}"/>
       <label text="★ Notizie Italia" font="22" color="#1A1A2E" bold="true"/>
       <list items="{news_italia}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
       <label text="★ Notizie Estero" font="22" color="#1A1A2E" bold="true"/>
