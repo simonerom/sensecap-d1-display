@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.1"
+SPEC_VERSION = "1.3.2"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -290,11 +290,20 @@ def _get_scioperi_summary():
         for s in sentences:
             s = s.strip()
             if len(s) < 20: continue
-            has_date = re.search(r"\b\d{1,2}\s+(marzo|aprile|maggio|gennaio|febbraio)\b", s, re.IGNORECASE)
+            date_m = re.search(r"\b(\d{1,2}\s+(?:marzo|aprile|maggio|gennaio|febbraio))\b", s, re.IGNORECASE)
             has_kw = any(w in s.lower() for w in ["sciopero","atm","metro","trasport","bus","tram"])
-            if has_date and has_kw and re.match(r'^[A-ZÀ-Ú][a-zà-ú]', s):
-                s = strip_emoji(s[:110])
-                hits.append(s)
+            if date_m and has_kw and re.match(r'^[A-ZÀ-Ú][a-zà-ú]', s):
+                date_str = date_m.group(1)
+                # Build compact line: "9 marzo: sciopero generale / ATM / trasporti"
+                kw_found = []
+                if re.search(r"generale", s, re.I): kw_found.append("sciopero generale")
+                elif re.search(r"\batm\b", s, re.I): kw_found.append("ATM")
+                elif re.search(r"\baereo|aeroporto|volo\b", s, re.I): kw_found.append("aerei")
+                elif re.search(r"treno|trenitalia|trenord", s, re.I): kw_found.append("treni")
+                elif re.search(r"trasport", s, re.I): kw_found.append("trasporti")
+                else: kw_found.append("mezzi pubblici")
+                line = f"{date_str}: {', '.join(kw_found)}"
+                hits.append(line)
             if len(hits) >= 3:
                 break
         return hits if hits else []
@@ -451,7 +460,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.3.1">
+<screens version="1.3.2">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
