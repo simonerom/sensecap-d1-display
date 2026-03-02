@@ -135,7 +135,7 @@ void PlaceholderEngine::updateSensor(float tempC, float humPct, bool ok, float t
         setValue("indoor_temp", "--");
         setValue("indoor_hum",  "--");
     } else {
-        snprintf(buf, sizeof(buf), "%.1fÂ°C", tempC);
+        snprintf(buf, sizeof(buf), "%.1f°C", tempC);
         setValue("indoor_temp", buf);
         snprintf(buf, sizeof(buf), "%.0f%%", humPct);
         setValue("indoor_hum", buf);
