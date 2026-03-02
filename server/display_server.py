@@ -414,7 +414,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
   </screen>
 
   <screen id="clock" bg="#F5F5F5">
-    <big_clock font="96" color="#1A1A2E" align="center" format="HH:MM"/>
+    <big_clock font="128" color="#1A1A2E" align="center" format="HH:MM:SS" bold="true"/>
     <label text="{weekday} {day} {month}" font="20" color="#666666" align="center"/>
     <row gap="12" pad="16">
       <card flex="1" bg="#FFFFFF" radius="16" pad="16">
