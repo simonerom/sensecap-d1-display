@@ -431,7 +431,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     static const char* dayNames[] = { "Lu","Ma","Me","Gi","Ve","Sa","Do" };
 
     const int CELL_W = 66;
-    const int CELL_H = 50;
+    const int CELL_H = 36;
 
     // Outer white card
     lv_obj_t* card = lv_hlp_card(parent, lv_hlp_hex(0xFFFFFF), 12, 0);
@@ -473,16 +473,13 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         lv_hlp_set_pad_all(cell, 0);
         lv_obj_set_style_layout(cell, 0, 0);  // no flex — manual placement
 
-        // Day number label: centered in cell
+        // Day number label: size_content, centered in cell
         lv_obj_t* lbl = lv_label_create(cell);
         lv_label_set_text(lbl, "");
         lv_hlp_set_font(lbl, lv_hlp_font(14));
         lv_hlp_set_text_color(lbl, txtCol);
-        lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_size(lbl, LV_PCT(100), LV_PCT(100));
-        lv_obj_set_style_pad_all(lbl, 0, 0);
-        lv_obj_set_style_text_opa(lbl, LV_OPA_COVER, 0);
-        lv_obj_set_style_align(lbl, LV_ALIGN_CENTER, 0);
+        lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
 
         // Event dot: pinned to bottom-center
         lv_obj_t* dot = lv_obj_create(cell);
@@ -509,8 +506,10 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         int y = state->year, m = state->month, today = state->today;
         if (y < 2020 || m < 1 || m > 12) return;
 
-        struct tm t = {};
+        struct tm t;
+        memset(&t, 0, sizeof(t));
         t.tm_year = y - 1900; t.tm_mon = m - 1; t.tm_mday = 1;
+        t.tm_isdst = -1;
         mktime(&t);
         int startDow = (t.tm_wday + 6) % 7; // 0=Mon
 
@@ -527,12 +526,14 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
 
             if (day < 1 || day > daysInMonth) {
                 lv_label_set_text(lbl, "");
+                lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
                 lv_hlp_set_bg(cell, capturedCellBg, LV_OPA_TRANSP);
                 if (dot) lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
             } else {
                 char buf[4];
                 snprintf(buf, sizeof(buf), "%d", day);
                 lv_label_set_text(lbl, buf);
+                lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
                 bool isToday = (day == today);
                 bool isHol   = state->holDays.count(day) > 0;
                 if (isToday) {
