@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.28"
+SPEC_VERSION = "1.3.29"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -679,7 +679,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <!-- Card orologio -->
     <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" w="100%" gap="4">
       <big_clock font="96" color="#FFFFFF" align="center" format="HH:MM" bold="true"/>
-      <big_clock font="48" color="#DDDDFF" align="center" format="SS" bold="true"/>
+      <big_clock font="48" color="#DDDDFF" align="center" format="SS"/>
       <label text="{weekday_long}, {day} {month_name} {year}" font="18" color="#CCCCEE" align="center"/>
     </card>
     <!-- Card temperature -->
