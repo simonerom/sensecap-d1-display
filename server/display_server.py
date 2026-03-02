@@ -21,7 +21,7 @@ EMOJI_MONO = {
     "☀️": "☀", "🌤️": "☁", "⛅": "☁", "🌥️": "☁", "🌦️": "☁",
     "🌧️": "☁", "🌨️": "☁", "🌩️": "⚡", "⛈️": "⚡", "🌪️": "~",
     "🌡️": "▲", "💧": "~", "❄️": "*", "🌈": "~",
-    "📰": "☰", "📅": "◉", "📆": "◉", "🗓️": "◉",
+    "📰": "★", "📅": "◉", "📆": "◉", "🗓️": "◉",
     "💰": "$", "💵": "$", "💶": "$", "📈": "▲", "📉": "▼",
     "⭐": "★", "🌟": "★", "✨": "★", "💡": "★",
     "⚠️": "⚠", "❗": "!", "❕": "!", "🔴": "(!)",
@@ -53,7 +53,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.0.6"
+SPEC_VERSION = "1.0.7"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -408,7 +408,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.0.6">
+<screens version="1.0.7">
 
   <screen id="home" bg="#F5F5F5">
     <card bg="#FFFFFF" radius="16" pad="20" w="100%">
@@ -437,7 +437,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <crypto_row symbol="{btc_symbol}" price="{btc_price}" change="{btc_change}" trend="{btc_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{eth_symbol}" price="{eth_price}" change="{eth_change}" trend="{eth_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{iotx_symbol}" price="{iotx_price}" change="{iotx_change}" trend="{iotx_trend}" up_color="#00A885" down_color="#E53935"/>
-      <label text="☰ Notizie" font="18" color="#1A1A2E" bold="true"/>
+      <label text="★ Notizie" font="18" color="#1A1A2E" bold="true"/>
       <list items="{news}" font="14" color="#333333" divider="#DDDDDD" max_lines="2"/>
     </card>
     <card bg="#E53935" radius="12" pad="12" w="100%" visible="{alert_visible}">
