@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.26"
+SPEC_VERSION = "1.3.27"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -654,10 +654,13 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
   </screen>
 
   <screen id="calendar" bg="#F0F0F6" pad="10">
-    <!-- Header: mese a sinistra, temp a destra -->
-    <row gap="0" h="36" w="100%">
-      <label text="{month_name} {cal_year}" font="22" bold="true" color="#1A1A2E" flex="1"/>
-      <label text="▲ {indoor_temp}  ☁ {outdoor_temp}" font="18" color="#5B21B6" bold="true" w="auto"/>
+    <!-- Header: mese a sx, temp int/est a dx -->
+    <row gap="4" h="28" w="100%">
+      <label text="{cal_header}" font="15" bold="true" color="#1A1A2E" flex="1"/>
+      <label text="Int: " font="15" color="#666666" w="auto"/>
+      <label text="{indoor_temp}" font="15" color="#5B21B6" bold="true" w="auto"/>
+      <label text="  Est: " font="15" color="#666666" w="auto"/>
+      <label text="{outdoor_temp}" font="15" color="#5B21B6" bold="true" w="auto"/>
     </row>
     <calendar_grid today="{cal_today}" startdow="{cal_startdow}" days="{cal_days}" event_days="{event_days}" holiday_days="{holiday_days}"
       highlight_color="#D63384" text_color="#1A1A2E" header_color="#888888" cell_bg="#EFEFEF"/>
