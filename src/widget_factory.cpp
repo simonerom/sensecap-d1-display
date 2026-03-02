@@ -420,16 +420,18 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     String monthAttr    = _attr(attrs, "month",       "{cal_month}");
     String todayAttr    = _attr(attrs, "today",       "{cal_today}");
     String evDaysAttr   = _attr(attrs, "event_days",  "{event_days}");
-    lv_color_t hlCol    = _attrColor(attrs, "highlight_color", 0x5B21B6);
+    lv_color_t hlCol    = _attrColor(attrs, "highlight_color", 0xD63384);  // fuchsia today
     lv_color_t txtCol   = _attrColor(attrs, "text_color",      0x1A1A2E);
     lv_color_t hdrCol   = _attrColor(attrs, "header_color",    0x888888);
     lv_color_t dotCol   = _attrColor(attrs, "dot_color",       0x5B21B6);
+    lv_color_t cellBg   = _attrColor(attrs, "cell_bg",         0xEFEFEF);
+    String holDaysAttr  = _attr(attrs, "holiday_days", "{holiday_days}");
 
     // Italian day headers Mon-first
     static const char* dayNames[] = { "Lu","Ma","Me","Gi","Ve","Sa","Do" };
 
-    const int CELL_W = 480 / 7;   // ~68px
-    const int CELL_H = 52;
+    const int CELL_W = 66;
+    const int CELL_H = 50;
 
     // Outer white card
     lv_obj_t* card = lv_hlp_card(parent, lv_hlp_hex(0xFFFFFF), 12, 0);
@@ -464,11 +466,11 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     for (int i = 0; i < 42; i++) {
         lv_obj_t* cell = lv_obj_create(grid);
         lv_obj_set_size(cell, CELL_W, CELL_H);
-        lv_hlp_set_bg(cell, lv_color_black(), LV_OPA_TRANSP);
+        lv_hlp_set_bg(cell, cellBg);
         lv_hlp_set_border_none(cell);
         lv_hlp_set_radius(cell, 8);
         lv_hlp_no_scroll(cell);
-        lv_hlp_set_pad_all(cell, 2);
+        lv_hlp_set_pad_all(cell, 4);
         lv_hlp_flex_col(cell, 1);
         lv_obj_set_style_flex_main_place(cell, LV_FLEX_ALIGN_CENTER, 0);
         lv_obj_set_style_flex_cross_place(cell, LV_FLEX_ALIGN_CENTER, 0);
@@ -476,7 +478,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         // Day number label
         lv_obj_t* lbl = lv_label_create(cell);
         lv_label_set_text(lbl, "");
-        lv_hlp_set_font(lbl, lv_hlp_font(16));
+        lv_hlp_set_font(lbl, lv_hlp_font(14));
         lv_hlp_set_text_color(lbl, txtCol);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
 
@@ -491,14 +493,15 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         cells[i] = cell;
     }
 
-    struct CalState { int year=0, month=0, today=0; std::set<int> evDays; };
+    struct CalState { int year=0, month=0, today=0; std::set<int> evDays; std::set<int> holDays; };
     auto* state = new CalState();
     lv_obj_t** capturedCells = cells;
     lv_color_t capturedHl  = hlCol;
     lv_color_t capturedTxt = txtCol;
     lv_color_t capturedDot = dotCol;
 
-    auto rebuild = [capturedCells, state, capturedHl, capturedTxt, capturedDot]() {
+    lv_color_t capturedCellBg = cellBg;
+    auto rebuild = [capturedCells, state, capturedHl, capturedTxt, capturedDot, capturedCellBg]() {
         int y = state->year, m = state->month, today = state->today;
         if (y < 2020 || m < 1 || m > 12) return;
 
@@ -520,20 +523,21 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
 
             if (day < 1 || day > daysInMonth) {
                 lv_label_set_text(lbl, "");
-                lv_hlp_set_bg(cell, lv_color_black(), LV_OPA_TRANSP);
+                lv_hlp_set_bg(cell, capturedCellBg, LV_OPA_TRANSP);
                 if (dot) lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
             } else {
                 char buf[4];
                 snprintf(buf, sizeof(buf), "%d", day);
                 lv_label_set_text(lbl, buf);
                 bool isToday = (day == today);
+                bool isHol   = state->holDays.count(day) > 0;
                 if (isToday) {
                     lv_hlp_set_bg(cell, capturedHl);
                     lv_hlp_set_text_color(lbl, lv_color_white());
-                    lv_hlp_set_radius(cell, 8);
                 } else {
-                    lv_hlp_set_bg(cell, lv_color_black(), LV_OPA_TRANSP);
-                    lv_hlp_set_text_color(lbl, capturedTxt);
+                    lv_hlp_set_bg(cell, capturedCellBg);
+                    lv_color_t tc = isHol ? lv_hlp_hex(0xD32F2F) : capturedTxt;
+                    lv_hlp_set_text_color(lbl, tc);
                 }
                 // Event dot
                 if (dot) {
@@ -566,22 +570,31 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     reg(monthAttr, &state->month);
     reg(todayAttr, &state->today);
 
+    // holiday_days
+    auto parseIntSet = [](const String& v, std::set<int>& s) {
+        s.clear();
+        int start = 0;
+        while (start < (int)v.length()) {
+            int comma = v.indexOf(',', start);
+            if (comma < 0) comma = v.length();
+            int d = v.substring(start, comma).toInt();
+            if (d > 0) s.insert(d);
+            start = comma + 1;
+        }
+    };
+    if (holDaysAttr.startsWith("{") && holDaysAttr.endsWith("}")) {
+        String key = holDaysAttr.substring(1, holDaysAttr.length()-1);
+        _engine.registerTrend(key.c_str(), [state, rebuild, parseIntSet](const String& v) {
+            parseIntSet(v, state->holDays); rebuild();
+        });
+        parseIntSet(_engine.get(key.c_str()), state->holDays);
+    }
+
     // event_days: comma-separated day numbers, e.g. "3,9,10,25"
     if (evDaysAttr.startsWith("{") && evDaysAttr.endsWith("}")) {
         String key = evDaysAttr.substring(1, evDaysAttr.length()-1);
-        auto parseEvDays = [state, rebuild](const String& v) {
-            state->evDays.clear();
-            int start = 0;
-            while (start < (int)v.length()) {
-                int comma = v.indexOf(',', start);
-                if (comma < 0) comma = v.length();
-                String tok = v.substring(start, comma);
-                tok.trim();
-                int d = tok.toInt();
-                if (d > 0) state->evDays.insert(d);
-                start = comma + 1;
-            }
-            rebuild();
+        auto parseEvDays = [state, rebuild, parseIntSet](const String& v) {
+            parseIntSet(v, state->evDays); rebuild();
         };
         _engine.registerTrend(key.c_str(), [parseEvDays](const String& v) { parseEvDays(v); });
         parseEvDays(_engine.get(key.c_str()));
@@ -615,29 +628,46 @@ lv_obj_t* WidgetFactory::_buildEventsList(lv_obj_t* parent, const AttrMap& attrs
             [cfg](lv_obj_t* c, const std::vector<String>& items) {
                 lv_obj_clean(c);
                 for (const String& line : items) {
+                    // Format: "TITLE|||Marzo 15, 13:00 - 13:30"
+                    int sep = line.indexOf("|||");
+                    String title   = (sep > 0) ? line.substring(0, sep)   : line;
+                    String dateStr = (sep > 0) ? line.substring(sep + 3)  : "";
+
                     lv_obj_t* row = lv_hlp_obj(c);
-                    lv_hlp_flex_col(row, 2);
+                    lv_hlp_flex_col(row, 3);
                     lv_obj_set_width(row, LV_PCT(100));
                     lv_obj_set_height(row, LV_SIZE_CONTENT);
+                    lv_obj_set_style_pad_bottom(row, 6, 0);
 
-                    // The line is already "HH:MM  d mon  Title" from fetcher
-                    // Split by two spaces to get time/date prefix and title suffix
-                    int sepIdx = line.indexOf("  ");
-                    String dt    = (sepIdx > 0) ? line.substring(0, sepIdx) : "";
-                    String title = (sepIdx > 0) ? line.substring(sepIdx + 2) : line;
-
-                    if (!dt.isEmpty()) {
-                        lv_obj_t* dtLbl = lv_label_create(row);
-                        lv_label_set_text(dtLbl, dt.c_str());
-                        lv_hlp_set_font(dtLbl, lv_hlp_font(cfg->fontSize - 2));
-                        lv_hlp_set_text_color(dtLbl, cfg->dtCol);
-                    }
+                    // Line 1: title bold
                     lv_obj_t* titleLbl = lv_label_create(row);
                     lv_label_set_text(titleLbl, title.c_str());
                     lv_hlp_set_font(titleLbl, lv_hlp_font(cfg->fontSize));
+                    lv_obj_set_style_text_font(titleLbl, lv_hlp_font_bold(cfg->fontSize), 0);
                     lv_hlp_set_text_color(titleLbl, cfg->col);
                     lv_label_set_long_mode(titleLbl, LV_LABEL_LONG_WRAP);
                     lv_obj_set_width(titleLbl, LV_PCT(100));
+
+                    // Line 2: clock icon + date/time in grey
+                    if (!dateStr.isEmpty()) {
+                        String dtFull = String("ï ") + dateStr; // clock glyph
+                        lv_obj_t* dtLbl = lv_label_create(row);
+                        lv_label_set_text(dtLbl, (String(LV_SYMBOL_DUMMY) + dateStr).c_str());
+                        // Use plain text with clock symbol
+                        char dtBuf[128];
+                        snprintf(dtBuf, sizeof(dtBuf), "@ %s", dateStr.c_str());
+                        lv_label_set_text(dtLbl, dtBuf);
+                        lv_hlp_set_font(dtLbl, lv_hlp_font(cfg->fontSize - 2));
+                        lv_hlp_set_text_color(dtLbl, cfg->dtCol);
+                        lv_obj_set_width(dtLbl, LV_PCT(100));
+                    }
+
+                    // Divider line
+                    lv_obj_t* div = lv_obj_create(c);
+                    lv_obj_set_size(div, LV_PCT(100), 1);
+                    lv_hlp_set_bg(div, lv_hlp_hex(0xDDDDDD));
+                    lv_hlp_set_border_none(div);
+                    lv_hlp_set_radius(div, 0);
                 }
             }
         );

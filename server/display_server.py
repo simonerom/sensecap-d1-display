@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.21"
+SPEC_VERSION = "1.3.22"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -382,6 +382,22 @@ def get_news():
         "scioperi":[strip_emoji(t) for t in scioperi],
     }
 
+MONTHS_IT_FULL = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno",
+                   "Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"]
+
+def _fmt_event_date(dtstart, dtend):
+    """Return 'Marzo 15, 13:00 - 13:30' or 'Marzo 15' for all-day."""
+    if isinstance(dtstart, date) and not isinstance(dtstart, datetime):
+        # all-day
+        return f"{MONTHS_IT_FULL[dtstart.month-1]} {dtstart.day}"
+    mo = MONTHS_IT_FULL[dtstart.month - 1]
+    day = dtstart.day
+    t1 = dtstart.strftime("%H:%M")
+    if dtend and isinstance(dtend, datetime):
+        t2 = dtend.strftime("%H:%M")
+        return f"{mo} {day}, {t1} - {t2}"
+    return f"{mo} {day}, {t1}"
+
 def get_events():
     try:
         pwd = caldav_password()
@@ -391,25 +407,28 @@ def get_events():
         cal = next(c for c in client.principal().calendars() if c.name == "iCloud")
         now   = datetime.now(TZ)
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end   = start + timedelta(days=7)
+        end   = start + timedelta(days=14)
         evts  = cal.search(start=start, end=end, event=True, expand=True)
         result = []
         for e in evts:
             try:
-                v    = e.vobject_instance.vevent
+                v     = e.vobject_instance.vevent
                 title = str(v.summary.value)
                 dtstart = v.dtstart.value
-                if hasattr(dtstart, 'strftime'):
-                    if hasattr(dtstart, 'tzinfo') and dtstart.tzinfo:
+                dtend   = v.dtend.value if hasattr(v, 'dtend') else None
+                # normalize to local TZ
+                if isinstance(dtstart, datetime):
+                    if dtstart.tzinfo:
                         dtstart = dtstart.astimezone(TZ)
-                    day   = dtstart.strftime("%-d %b").lower()
-                    time_ = dtstart.strftime("%H:%M")
-                else:
-                    day   = dtstart.strftime("%-d %b").lower()
-                    time_ = "tutto il giorno"
-                result.append({"date": day, "time": time_, "title": title})
+                    if isinstance(dtend, datetime) and dtend.tzinfo:
+                        dtend = dtend.astimezone(TZ)
+                date_str = _fmt_event_date(dtstart, dtend)
+                sort_key = dtstart.isoformat() if hasattr(dtstart, 'isoformat') else str(dtstart)
+                result.append({"sort": sort_key, "date_str": date_str, "title": title, "dtstart": dtstart})
             except: pass
-        return sorted(result, key=lambda x: x["date"])[:10]
+        result.sort(key=lambda x: x["sort"])
+        # Return as "TITLE|||date_str" strings
+        return [f"{r['title']}|||{r['date_str']}" for r in result[:15]]
     except:
         return []
 
@@ -483,17 +502,32 @@ def build_data():
 
     return {
 
-        # event_days: comma-separated day numbers of current month with events
-        import calendar as _cal
+        # event_days from events strings "TITLE|||Marzo 15, ..."
         ev_days = set()
         for ev in events:
             try:
-                ev_dt = datetime.strptime(ev.get("start","")[:10], "%Y-%m-%d")
-                if ev_dt.year == now.year and ev_dt.month == now.month:
-                    ev_days.add(ev_dt.day)
+                date_part = ev.split("|||")[1] if "|||" in ev else ""
+                for mi, mn in enumerate(MONTHS_IT_FULL):
+                    if mn in date_part:
+                        rest = date_part.replace(mn, "").strip()
+                        day_num = int(rest.split(",")[0].split()[0])
+                        if mi + 1 == now.month:
+                            ev_days.add(day_num)
+                        break
             except Exception:
                 pass
         result["event_days"] = ",".join(str(d) for d in sorted(ev_days))
+
+        # holiday_days: Italian public holidays in current month
+        hol_days = set()
+        for day_num in range(1, 32):
+            try:
+                dt = datetime(now.year, now.month, day_num).date()
+                if is_italian_holiday(dt) and dt.weekday() < 6:
+                    hol_days.add(day_num)
+            except Exception:
+                pass
+        result["holiday_days"] = ",".join(str(d) for d in sorted(hol_days))
         "_version":   SPEC_VERSION,
         "updated_at": now.strftime("%H:%M"),
         "updated_ts": int(now.timestamp()),
@@ -607,8 +641,8 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
   </screen>
 
   <screen id="calendar" bg="#F0F0F6" pad="10">
-    <calendar_grid year="{cal_year}" month="{cal_month}" today="{cal_today}" event_days="{event_days}"
-      highlight_color="#5B21B6" text_color="#1A1A2E" header_color="#888888" dot_color="#5B21B6"/>
+    <calendar_grid year="{cal_year}" month="{cal_month}" today="{cal_today}" event_days="{event_days}" holiday_days="{holiday_days}"
+      highlight_color="#D63384" text_color="#1A1A2E" header_color="#888888" dot_color="#5B21B6" cell_bg="#EFEFEF"/>
     <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" w="100%" scroll="true">
       <label text="Prossimi eventi" font="16" color="#5B21B6" bold="true"/>
       <events_list items="{events}" font="15" color="#1A1A2E" date_color="#5B21B6"/>
