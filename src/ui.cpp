@@ -6,7 +6,6 @@
 // Include only the needed Arduino_GFX components to avoid pulling in
 // Arduino_ESP32SPI.h which requires esp32-hal-periman.h (ESP32 Arduino 3.x)
 #include <Arduino_DataBus.h>
-#include <databus/Arduino_SWSPI.h>
 #include <databus/Arduino_ESP32RGBPanel.h>
 #include <Arduino_GFX.h>
 #include <display/Arduino_RGB_Display.h>
@@ -16,21 +15,20 @@
 // SenseCAP Indicator D1 Pro — Arduino_GFX RGB panel driver
 //
 // Display: ST7701S, 480x480, RGB interface
-// SPI init bus: MOSI=48, SCK=41, CS and RST via PCA9535 at I2C 0x20
-// I2C expander bus: SDA=39, SCL=40
+// SPI init bus (Mode 3, 9-bit): MOSI=48, SCK=41
+// CS=PCA9535 P04, RST=PCA9535 P05, I2C expander SDA=39, SCL=40
 // RGB data bus: R[4:0]=0-4, G[5:0]=5-10, B[4:0]=11-15
 // RGB control: DE=18, VSYNC=17, HSYNC=16, PCLK=21
 // Backlight: GPIO 45
 // =============================================================================
 
+#define LCD_SCK_PIN  41
+#define LCD_MOSI_PIN 48
+
 // PCA9535 I2C expander (CS=P04, RST=P05)
 static PCA9535 pca;
 
-// Software SPI data bus for ST7701S init sequence
-// CS is toggled manually via PCA9535 before/after SWSPI transfer
-static Arduino_DataBus *bus = nullptr;
-
-// RGB panel
+// RGB panel (no SPI bus object — we bit-bang init manually)
 static Arduino_ESP32RGBPanel *rgbpanel = nullptr;
 
 // Top-level GFX object
@@ -60,6 +58,143 @@ static void IRAM_ATTR lvgl_tick_isr(void* arg) {
 }
 
 // =============================================================================
+// ST7701S 9-bit SPI Mode 3 bit-bang
+// Mode 3: SCK idle HIGH, data clocked on falling edge (CPOL=1, CPHA=1)
+// 9-bit frame: D/C bit (0=cmd, 1=data) followed by 8 data bits, MSB first
+// CS is controlled externally via PCA9535 P04
+// =============================================================================
+static inline void spi_write_bit(bool bit) {
+    // SCK is HIGH (idle). Set MOSI, then fall SCK to latch, then restore HIGH.
+    if (bit) {
+        digitalWrite(LCD_MOSI_PIN, HIGH);
+    } else {
+        digitalWrite(LCD_MOSI_PIN, LOW);
+    }
+    digitalWrite(LCD_SCK_PIN, LOW);   // falling edge — ST7701S latches here
+    digitalWrite(LCD_SCK_PIN, HIGH);  // return to idle
+}
+
+static void lcd_spi_write_cmd(uint8_t cmd) {
+    spi_write_bit(0); // D/C = 0 for command
+    for (int i = 7; i >= 0; i--) {
+        spi_write_bit((cmd >> i) & 1);
+    }
+}
+
+static void lcd_spi_write_data(uint8_t data) {
+    spi_write_bit(1); // D/C = 1 for data
+    for (int i = 7; i >= 0; i--) {
+        spi_write_bit((data >> i) & 1);
+    }
+}
+
+// CS low (assert), transfer, CS high (deassert)
+static void lcd_cmd(uint8_t cmd) {
+    pca.write(PCA95x5::Port::P04, PCA95x5::Level::L);
+    lcd_spi_write_cmd(cmd);
+    pca.write(PCA95x5::Port::P04, PCA95x5::Level::H);
+}
+
+static void lcd_cmd_data(uint8_t cmd, const uint8_t *data, size_t len) {
+    pca.write(PCA95x5::Port::P04, PCA95x5::Level::L);
+    lcd_spi_write_cmd(cmd);
+    for (size_t i = 0; i < len; i++) {
+        lcd_spi_write_data(data[i]);
+    }
+    pca.write(PCA95x5::Port::P04, PCA95x5::Level::H);
+}
+
+// Helper macros for single/double data-byte writes
+#define LCD_CMD(c)         lcd_cmd(c)
+#define LCD_CMD1(c, d0)    do { uint8_t _d[]={d0}; lcd_cmd_data(c,_d,1); } while(0)
+#define LCD_CMD2(c,d0,d1)  do { uint8_t _d[]={d0,d1}; lcd_cmd_data(c,_d,2); } while(0)
+
+// =============================================================================
+// ST7701S init sequence for SenseCAP Indicator D1 Pro
+// Based on st7701_type1 from Arduino_GFX + ESPHome working config
+// =============================================================================
+static void lcd_init_sequence() {
+    // --- Bank 0 ---
+    { uint8_t d[] = {0x77, 0x01, 0x00, 0x00, 0x10}; lcd_cmd_data(0xFF, d, 5); }
+
+    LCD_CMD2(0xC0, 0x3B, 0x00);
+    LCD_CMD2(0xC1, 0x0D, 0x02);
+    LCD_CMD2(0xC2, 0x31, 0x05);
+    LCD_CMD1(0xCD, 0x08);
+
+    { uint8_t d[] = {0x00,0x11,0x18,0x0E,0x11,0x06,0x07,0x08,
+                     0x07,0x22,0x04,0x12,0x0F,0xAA,0x31,0x18};
+      lcd_cmd_data(0xB0, d, 16); }  // Positive Gamma
+
+    { uint8_t d[] = {0x00,0x11,0x19,0x0E,0x12,0x07,0x08,0x08,
+                     0x08,0x22,0x04,0x11,0x11,0xA9,0x32,0x18};
+      lcd_cmd_data(0xB1, d, 16); }  // Negative Gamma
+
+    // --- Bank 1 ---
+    { uint8_t d[] = {0x77, 0x01, 0x00, 0x00, 0x11}; lcd_cmd_data(0xFF, d, 5); }
+
+    LCD_CMD1(0xB0, 0x60);  // Vop=4.7375V
+    LCD_CMD1(0xB1, 0x32);  // VCOM
+    LCD_CMD1(0xB2, 0x07);  // VGH=15V
+    LCD_CMD1(0xB3, 0x80);
+    LCD_CMD1(0xB5, 0x49);  // VGL=-10.17V
+    LCD_CMD1(0xB7, 0x85);
+    LCD_CMD1(0xB8, 0x21);  // AVDD=6.6 & AVCL=-4.6
+    LCD_CMD1(0xC1, 0x78);
+    LCD_CMD1(0xC2, 0x78);
+
+    { uint8_t d[] = {0x00, 0x1B, 0x02}; lcd_cmd_data(0xE0, d, 3); }
+
+    { uint8_t d[] = {0x08,0xA0,0x00,0x00,0x07,0xA0,0x00,0x00,0x00,0x44,0x44};
+      lcd_cmd_data(0xE1, d, 11); }
+
+    { uint8_t d[] = {0x11,0x11,0x44,0x44,0xED,0xA0,0x00,0x00,0xEC,0xA0,0x00,0x00};
+      lcd_cmd_data(0xE2, d, 12); }
+
+    { uint8_t d[] = {0x00, 0x00, 0x11, 0x11}; lcd_cmd_data(0xE3, d, 4); }
+    LCD_CMD2(0xE4, 0x44, 0x44);
+
+    { uint8_t d[] = {0x0A,0xE9,0xD8,0xA0,0x0C,0xEB,0xD8,0xA0,
+                     0x0E,0xED,0xD8,0xA0,0x10,0xEF,0xD8,0xA0};
+      lcd_cmd_data(0xE5, d, 16); }
+
+    { uint8_t d[] = {0x00, 0x00, 0x11, 0x11}; lcd_cmd_data(0xE6, d, 4); }
+    LCD_CMD2(0xE7, 0x44, 0x44);
+
+    { uint8_t d[] = {0x09,0xE8,0xD8,0xA0,0x0B,0xEA,0xD8,0xA0,
+                     0x0D,0xEC,0xD8,0xA0,0x0F,0xEE,0xD8,0xA0};
+      lcd_cmd_data(0xE8, d, 16); }
+
+    { uint8_t d[] = {0x02,0x00,0xE4,0xE4,0x88,0x00,0x40};
+      lcd_cmd_data(0xEB, d, 7); }
+
+    LCD_CMD2(0xEC, 0x3C, 0x00);
+
+    { uint8_t d[] = {0xAB,0x89,0x76,0x54,0x02,0xFF,0xFF,0xFF,
+                     0xFF,0xFF,0xFF,0x20,0x45,0x67,0x98,0xBA};
+      lcd_cmd_data(0xED, d, 16); }
+
+    // --- VAP & VAN ---
+    { uint8_t d[] = {0x77, 0x01, 0x00, 0x00, 0x13}; lcd_cmd_data(0xFF, d, 5); }
+    LCD_CMD1(0xE5, 0xE4);
+
+    // --- Bank 0, display on ---
+    { uint8_t d[] = {0x77, 0x01, 0x00, 0x00, 0x00}; lcd_cmd_data(0xFF, d, 5); }
+
+    // Sunlight readable enhancement (from ESPHome working config)
+    LCD_CMD1(0xE0, 0x1F);
+
+    LCD_CMD(0x21);          // Display Inversion ON (IPS panel)
+    LCD_CMD1(0x3A, 0x60);   // Pixel format: RGB666
+
+    LCD_CMD(0x11);          // Sleep Out
+    delay(120);
+
+    LCD_CMD(0x29);          // Display ON
+    delay(20);
+}
+
+// =============================================================================
 // Display initialization
 // =============================================================================
 void lvgl_display_init() {
@@ -72,24 +207,26 @@ void lvgl_display_init() {
     pca.direction(PCA95x5::Port::P04, PCA95x5::Direction::OUT);
     pca.direction(PCA95x5::Port::P05, PCA95x5::Direction::OUT);
 
-    // Hardware reset sequence via PCA9535 RST pin (P05)
+    // SPI pins: SCK idle HIGH (Mode 3), MOSI idle LOW
+    pinMode(LCD_SCK_PIN,  OUTPUT);
+    pinMode(LCD_MOSI_PIN, OUTPUT);
+    digitalWrite(LCD_SCK_PIN,  HIGH);  // Mode 3: SCK idles HIGH
+    digitalWrite(LCD_MOSI_PIN, LOW);
+
+    // CS deasserted (HIGH) and RST deasserted (HIGH) initially
+    pca.write(PCA95x5::Port::P04, PCA95x5::Level::H);
+    pca.write(PCA95x5::Port::P05, PCA95x5::Level::H);
+
+    // Hardware reset: RST low → high
     pca.write(PCA95x5::Port::P05, PCA95x5::Level::L);
     delay(10);
     pca.write(PCA95x5::Port::P05, PCA95x5::Level::H);
-    delay(120);
+    delay(120);  // ST7701S needs 120ms after reset before init
 
-    // Assert CS low for ST7701S init SPI transfer
-    pca.write(PCA95x5::Port::P04, PCA95x5::Level::L);
+    // Run ST7701S SPI init sequence (Mode 3, 9-bit)
+    lcd_init_sequence();
 
-    // Software SPI bus: DC=N/A (ST7701 uses 3-wire SPI), SCK=41, MOSI=48
-    bus = new Arduino_SWSPI(
-        GFX_NOT_DEFINED /* DC */,
-        GFX_NOT_DEFINED /* CS — controlled via PCA9535 */,
-        41 /* SCK */,
-        48 /* MOSI */,
-        GFX_NOT_DEFINED /* MISO */);
-
-    // RGB panel with ST7701S timing
+    // RGB panel with confirmed ST7701S timing (from Arduino_GFX discussion #334)
     rgbpanel = new Arduino_ESP32RGBPanel(
         18 /* DE */, 17 /* VSYNC */, 16 /* HSYNC */, 21 /* PCLK */,
         4,  3,  2,  1,  0,       /* R4..R0 */
@@ -104,22 +241,15 @@ void lvgl_display_init() {
         8  /* vsync_pulse_width */,
         20 /* vsync_back_porch */);
 
-    // Compose RGB display using st7701_type1 init sequence (built-in to Arduino_GFX)
+    // No SPI bus passed — init already done above
     gfx = new Arduino_RGB_Display(
         SCREEN_WIDTH, SCREEN_HEIGHT,
         rgbpanel,
         DISPLAY_ROTATION,
-        true /* auto_flush */,
-        bus,
-        GFX_NOT_DEFINED /* RST — done via PCA9535 above */,
-        st7701_type1_init_operations,
-        sizeof(st7701_type1_init_operations));
+        true /* auto_flush */);
 
     gfx->begin();
-    gfx->fillScreen(0x0000); // RGB565 black
-
-    // Deassert CS after init
-    pca.write(PCA95x5::Port::P04, PCA95x5::Level::H);
+    gfx->fillScreen(BLACK);
 
     // Backlight on GPIO 45
     pinMode(GFX_BL, OUTPUT);
