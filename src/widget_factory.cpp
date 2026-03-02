@@ -539,7 +539,9 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
                 if (isToday) {
                     lv_hlp_set_bg(cell, capturedHl);
                     lv_hlp_set_text_color(lbl, lv_color_white());
+                    lv_obj_set_style_text_font(lbl, lv_hlp_font_bold(14), 0);
                 } else {
+                    lv_obj_set_style_text_font(lbl, lv_hlp_font(14), 0);
                     lv_hlp_set_bg(cell, capturedCellBg);
                     lv_color_t tc = isHol ? lv_hlp_hex(0xD32F2F) : capturedTxt;
                     lv_hlp_set_text_color(lbl, tc);
