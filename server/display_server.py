@@ -332,19 +332,21 @@ def _get_scioperi_summary():
                 hits.append((ev_date, line))
 
         hits.sort(key=lambda x: x[0])
-        # Always include ATM + first of each other category (max 5 total)
-        atm = [(d,l) for d,l in hits if "ATM" in l]
-        others = [(d,l) for d,l in hits if "ATM" not in l]
-        # Deduplicate others by category, keep earliest
+        # Deduplicate by line, always include all ATM entries
+        seen = set(); result = []
+        # First pass: ATM entries
+        for ev_date, line in hits:
+            if "ATM" in line and line not in seen:
+                seen.add(line); result.append(line)
+        # Second pass: others (one per category)
         cat_seen = set()
-        others_dedup = []
-        for d,l in others:
-            cat = l.split(":")[-1].strip()
-            if cat not in cat_seen:
-                cat_seen.add(cat)
-                others_dedup.append((d,l))
-        combined = sorted(atm + others_dedup, key=lambda x: x[0])
-        return [h[1] for h in combined[:5]]
+        for ev_date, line in hits:
+            if "ATM" in line: continue
+            cat = line.split(": ", 1)[-1]
+            if cat not in cat_seen and line not in seen:
+                cat_seen.add(cat); seen.add(line); result.append(line)
+        result.sort(key=lambda l: next((ev_date for ev_date,ln in hits if ln==l), _date(2099,1,1)))
+        return result[:5]
     except Exception as e:
         return []
 
@@ -366,7 +368,7 @@ def get_news():
         "italia":  [strip_emoji(t) for t in italia[:3]],
         "estero":  [strip_emoji(t) for t in estero[:3]],
         "milano":  [strip_emoji(t) for t in milano[:2]],
-        "scioperi":[strip_emoji(t) for t in scioperi[:2]],
+        "scioperi":[strip_emoji(t) for t in scioperi],
     }
 
 def get_events():
