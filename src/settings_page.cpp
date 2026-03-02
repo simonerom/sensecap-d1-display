@@ -239,39 +239,45 @@ void SettingsPage::applyCalibration(const TouchCalibration& cal) {}
 void SettingsPage::startCalibration() {}
 
 // =============================================================================
-// _buildKeyboardPanel
+// _buildKeyboardPanel — fullscreen overlay
 // =============================================================================
 void SettingsPage::_buildKeyboardPanel(lv_obj_t* screenParent) {
+    // Fullscreen overlay (covers entire screen)
     _kbdPanel = lv_obj_create(screenParent);
-    lv_obj_set_size(_kbdPanel, SCREEN_WIDTH, 336);
-    lv_obj_align(_kbdPanel, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_hlp_set_bg(_kbdPanel, lv_hlp_hex(0xEEEEF4));
+    lv_obj_set_size(_kbdPanel, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(_kbdPanel, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_hlp_set_bg(_kbdPanel, lv_hlp_hex(0xF5F5FA));
     lv_hlp_set_border_none(_kbdPanel);
     lv_hlp_set_radius(_kbdPanel, 0);
-    lv_hlp_set_pad_all(_kbdPanel, 6);
+    lv_obj_set_style_pad_all(_kbdPanel, 12, 0);
     lv_hlp_no_scroll(_kbdPanel);
 
+    // Field name label (top-left)
     _kbdFieldLabel = lv_label_create(_kbdPanel);
     lv_label_set_text(_kbdFieldLabel, "");
     lv_obj_set_style_text_color(_kbdFieldLabel, lv_hlp_hex(L_LABEL), 0);
-    lv_hlp_set_font(_kbdFieldLabel, lv_hlp_font(12));
-    lv_obj_align(_kbdFieldLabel, LV_ALIGN_TOP_LEFT, 4, 0);
+    lv_hlp_set_font(_kbdFieldLabel, lv_hlp_font(13));
+    lv_obj_align(_kbdFieldLabel, LV_ALIGN_TOP_LEFT, 0, 0);
 
+    // Preview textarea (full width, below label)
     _kbdPreview = lv_textarea_create(_kbdPanel);
-    lv_obj_set_size(_kbdPreview, SCREEN_WIDTH - 12, 48);
-    lv_obj_align(_kbdPreview, LV_ALIGN_TOP_MID, 0, 18);
+    lv_obj_set_size(_kbdPreview, SCREEN_WIDTH - 24, 54);
+    lv_obj_align(_kbdPreview, LV_ALIGN_TOP_MID, 0, 22);
     lv_textarea_set_one_line(_kbdPreview, true);
-    lv_hlp_set_font(_kbdPreview, lv_hlp_font(22));
+    lv_hlp_set_font(_kbdPreview, lv_hlp_font(24));
     lv_hlp_set_bg(_kbdPreview, lv_hlp_hex(L_INPUT_BG));
     lv_obj_set_style_text_color(_kbdPreview, lv_hlp_hex(L_TEXT), 0);
     lv_obj_set_style_border_color(_kbdPreview, lv_hlp_hex(L_ACCENT), 0);
     lv_obj_set_style_border_width(_kbdPreview, 2, 0);
-    lv_hlp_set_radius(_kbdPreview, 6);
+    lv_hlp_set_radius(_kbdPreview, 8);
+    lv_obj_set_style_pad_hor(_kbdPreview, 12, 0);
+    lv_obj_set_style_pad_ver(_kbdPreview, 10, 0);
 
+    // Keyboard — fills the rest of the screen below preview
     _keyboard = lv_keyboard_create(_kbdPanel);
-    lv_obj_set_size(_keyboard, SCREEN_WIDTH - 12, 262);
+    lv_obj_set_size(_keyboard, SCREEN_WIDTH - 24, SCREEN_HEIGHT - 100);
     lv_obj_align(_keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_hlp_set_bg(_keyboard, lv_hlp_hex(0xEEEEF4));
+    lv_hlp_set_bg(_keyboard, lv_hlp_hex(0xF5F5FA));
     lv_keyboard_set_textarea(_keyboard, _kbdPreview);
     lv_obj_add_event_cb(_keyboard, _onKeyboardReady, LV_EVENT_READY,  this);
     lv_obj_add_event_cb(_keyboard, _onKeyboardReady, LV_EVENT_CANCEL, this);
