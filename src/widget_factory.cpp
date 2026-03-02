@@ -87,6 +87,12 @@ lv_obj_t* WidgetFactory::buildScreen(const char* id, const AttrMap& attrs) {
     lv_hlp_set_bg(scr, bg);
     lv_hlp_set_border_none(scr);
     lv_hlp_set_radius(scr, 0);
+    String gradColorStr = _attr(attrs, "grad_color", "");
+    if (gradColorStr.length() > 0) {
+        lv_color_t gc = _attrColor(attrs, "grad_color", 0x000000);
+        lv_obj_set_style_bg_grad_color(scr, gc, 0);
+        lv_obj_set_style_bg_grad_dir(scr, LV_GRAD_DIR_VER, 0);
+    }
     int pad = _attrInt(attrs, "pad", 8);
     lv_hlp_set_pad_all(scr, (lv_coord_t)pad);
     // Enable vertical scroll on the screen so content taller than 480px is reachable.
@@ -142,6 +148,18 @@ lv_obj_t* WidgetFactory::_buildCard(lv_obj_t* parent, const AttrMap& attrs) {
     lv_obj_t* card = lv_hlp_card(parent, bg, (lv_coord_t)radius, 0);
     lv_obj_set_style_pad_hor(card, (lv_coord_t)pad_h, 0);
     lv_obj_set_style_pad_ver(card, (lv_coord_t)pad_v, 0);
+    // bg_opa: glass effect (0-255)
+    int bgOpa = _attrInt(attrs, "bg_opa", 255);
+    if (bgOpa < 255) lv_obj_set_style_bg_opa(card, (lv_opa_t)bgOpa, 0);
+    // border for glass rim
+    String borderColorStr = _attr(attrs, "border_color", "");
+    int borderW = _attrInt(attrs, "border_width", 0);
+    if (borderColorStr.length() > 0 && borderW > 0) {
+        lv_color_t bc = _attrColor(attrs, "border_color", 0xFFFFFF);
+        lv_obj_set_style_border_color(card, bc, 0);
+        lv_obj_set_style_border_width(card, borderW, 0);
+        lv_obj_set_style_border_opa(card, LV_OPA_40, 0);
+    }
     if (tight) {
         lv_obj_set_style_pad_row(card, 0, 0);
         lv_obj_set_style_pad_gap(card, 0, 0);
