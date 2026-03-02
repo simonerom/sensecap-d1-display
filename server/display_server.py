@@ -53,7 +53,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.1.1"
+SPEC_VERSION = "1.1.3"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -408,12 +408,12 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.1.1">
+<screens version="1.1.3">
 
   <screen id="home" bg="#F5F5F5">
     <card bg="#FFFFFF" radius="16" pad_h="12" pad_v="2" gap="0" tight="true" w="100%">
       <label text="{weekday}" font="16" color="#666666" align="center"/>
-      <label text="{day}" font="112" color="{day_color}" align="center" bold="true"/>
+      <label text="{day}" font="96" color="{day_color}" align="center" bold="true"/>
       <label text="{month_name}" font="16" color="#888888" align="center"/>
     </card>
     <row gap="12" pad="12">
