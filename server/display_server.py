@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.23"
+SPEC_VERSION = "1.3.24"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -651,24 +651,18 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
   </screen>
 
   <screen id="calendar" bg="#F0F0F6" pad="10">
-    <calendar_grid year="{cal_year}" month="{cal_month}" today="{cal_today}" event_days="{event_days}" holiday_days="{holiday_days}"
-      highlight_color="#D63384" text_color="#1A1A2E" header_color="#888888" dot_color="#5B21B6" cell_bg="#EFEFEF"/>
-    <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" w="100%" scroll="true">
+    <!-- Header: mese a sinistra, temp interna/esterna a destra -->
+    <row gap="8" h="36">
+      <label text="{month_name} {cal_year}" font="22" bold="true" color="#1A1A2E" flex="1"/>
+      <label text="▲ {indoor_temp}" font="18" color="#5B21B6" bold="true"/>
+      <label text="☁ {outdoor_temp}" font="18" color="#5B21B6" bold="true"/>
+    </row>
+    <calendar_grid today="{cal_today}" startdow="{cal_startdow}" days="{cal_days}" event_days="{event_days}" holiday_days="{holiday_days}"
+      highlight_color="#D63384" text_color="#1A1A2E" header_color="#888888" cell_bg="#EFEFEF"/>
+    <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="12" w="100%" scroll="true" scrollbar="false">
       <label text="Prossimi eventi" font="16" color="#5B21B6" bold="true"/>
       <events_list items="{events}" font="15" color="#1A1A2E" date_color="#5B21B6"/>
     </card>
-    <row gap="12" pad="12">
-      <card flex="1" bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="12">
-        <label text="▲ Interno" font="13" color="#666666" align="center"/>
-        <label text="{indoor_temp}" font="24" color="#5B21B6" align="center" bold="true"/>
-        <label text="{indoor_hum}" font="13" color="#888888" align="center"/>
-      </card>
-      <card flex="1" bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="12">
-        <label text="☁ Esterno" font="13" color="#666666" align="center"/>
-        <label text="{outdoor_temp}" font="24" color="#5B21B6" align="center" bold="true"/>
-        <label text="{outdoor_hum}" font="13" color="#888888" align="center"/>
-      </card>
-    </row>
   </screen>
 
   <screen id="clock" bg="#F5F5F5">
