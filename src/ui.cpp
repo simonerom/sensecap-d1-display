@@ -281,7 +281,7 @@ void lvgl_display_init() {
 //   x_lvgl = (SCREEN_WIDTH  - 1) - x_raw
 //   y_lvgl = (SCREEN_HEIGHT - 1) - y_raw
 // =============================================================================
-#define FT5X06_ADDR          0x38
+#define FT5X06_ADDR          0x48  // FT6336U (GX screen variant, confirmed by I2C scan)
 #define FT5X06_REG_MODE      0x00
 #define FT5X06_REG_NUMTOUCH  0x02
 #define FT5X06_REG_TOUCH1_XH 0x03  // [7:6]=event [3:0]=Xhigh
@@ -305,7 +305,10 @@ static void ft5x06_write_reg(uint8_t reg, uint8_t val) {
     Wire.endTransmission();
 }
 
+static bool _touch_ok = false;  // set to true only if chip probe succeeds
+
 static bool ft5x06_read_touch(uint16_t *x, uint16_t *y) {
+    if (!_touch_ok) return false;
     uint8_t num = ft5x06_read_reg(FT5X06_REG_NUMTOUCH) & 0x0F;
     if (num == 0 || num > 5) return false;
 
@@ -332,13 +335,19 @@ static bool ft5x06_read_touch(uint16_t *x, uint16_t *y) {
 
 static void touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
     static uint16_t last_x = 0, last_y = 0;
+    static bool was_pressed = false;
     uint16_t x, y;
     if (ft5x06_read_touch(&x, &y)) {
         last_x = x;
         last_y = y;
         data->state = LV_INDEV_STATE_PRESSED;
+        if (!was_pressed) {
+            Serial.printf("[Touch] DOWN x=%d y=%d\n", x, y);
+            was_pressed = true;
+        }
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
+        was_pressed = false;
     }
     data->point.x = last_x;
     data->point.y = last_y;
@@ -352,9 +361,21 @@ void lvgl_touch_init() {
     pca.write(PCA95x5::Port::P07, PCA95x5::Level::H);
     delay(50);
 
-    // Basic chip config
-    ft5x06_write_reg(FT5X06_REG_MODE,    0x00);  // Normal mode
-    ft5x06_write_reg(FT5X06_REG_THGROUP, 70);    // Touch threshold
+    // Probe chip: check if device ACKs on I2C
+    Wire.beginTransmission(FT5X06_ADDR);
+    uint8_t ack = Wire.endTransmission();
+    Serial.printf("[Touch] I2C probe 0x%02X: ack=%d (%s)\n", FT5X06_ADDR, ack, ack == 0 ? "OK" : "FAIL");
+
+    if (ack == 0) {
+        uint8_t chip_id = ft5x06_read_reg(0xA3);
+        uint8_t vendor  = ft5x06_read_reg(0xA8);
+        Serial.printf("[Touch] chipID=0x%02X vendorID=0x%02X\n", chip_id, vendor);
+        ft5x06_write_reg(FT5X06_REG_MODE,    0x00);
+        ft5x06_write_reg(FT5X06_REG_THGROUP, 70);
+        _touch_ok = true;
+    } else {
+        Serial.println("[Touch] FT5x06 not found at 0x38 — touch disabled");
+    }
 
     // Register LVGL input device
     static lv_indev_drv_t indev_drv;
@@ -362,6 +383,7 @@ void lvgl_touch_init() {
     indev_drv.type    = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = touch_read_cb;
     lv_indev_drv_register(&indev_drv);
+    Serial.println("[Touch] LVGL indev registered.");
 }
 
 void lvgl_tick_timer_init() {

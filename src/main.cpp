@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include <esp_timer.h>
 
 #include "../include/config.h"
@@ -108,12 +109,13 @@ void taskNetwork(void* pvParams) {
                                       WIFI_TIMEOUT_MS);
 
     if (!connected) {
-        DEBUG_PRINTLN("[Main] WiFi connection failed!");
+        DEBUG_PRINTLN("[Main] WiFi connection failed — redirecting to Settings.");
         if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-            ui.showError("WiFi not available\n" + appSettings.wifiSSID +
-                         "\n\nCheck Settings (gear icon)");
+            ui.goToSettings();
             xSemaphoreGive(dataMutex);
         }
+        vTaskDelete(nullptr);  // stop network task, user must reconfigure
+        return;
     } else {
         if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
             ui.hideOverlay();
@@ -179,14 +181,28 @@ void setup() {
 
     // Load settings from NVS
     bool hasSettings = settingsMgr.load(appSettings);
+    // Treat default placeholder SSID as unconfigured
+    if (appSettings.wifiSSID == WIFI_SSID_DEFAULT) hasSettings = false;
     DEBUG_PRINTF("[Main] NVS settings loaded: configured=%d\n", hasSettings);
 
     // Initialize display, touch and LVGL
     DEBUG_PRINTLN("[Main] Init display...");
     lvgl_display_init();
+
     DEBUG_PRINTLN("[Main] Init touch...");
     lvgl_touch_init();
     lvgl_tick_timer_init();
+
+    // I2C scan — after touch init so Wire is ready, delay so monitor connects
+    delay(2000);
+    DEBUG_PRINTLN("[I2C] Scanning bus SDA=39 SCL=40...");
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) {
+            DEBUG_PRINTF("[I2C] Found device at 0x%02X\n", addr);
+        }
+    }
+    DEBUG_PRINTLN("[I2C] Scan done.");
 
     // Initialize UI with settings-save callback
     DEBUG_PRINTLN("[Main] Init UI...");
@@ -208,7 +224,10 @@ void setup() {
     // On first boot (no NVS settings), go straight to Settings — skip network.
     if (!hasSettings) {
         DEBUG_PRINTLN("[Main] First boot - showing Settings page, skipping network.");
-        ui.goToSettings();
+        if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
+            ui.goToSettings();
+            xSemaphoreGive(dataMutex);
+        }
     } else {
         xTaskCreatePinnedToCore(taskNetwork, "Network", 16384, nullptr, 1, nullptr, 0);
     }
