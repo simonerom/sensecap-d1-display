@@ -167,9 +167,9 @@ def _parse_rss_titles(raw, skip=1, limit=4):
 def get_news():
     news = []
     feeds = [
-        ("https://news.google.com/rss/search?q=mondo&hl=it&gl=IT&ceid=IT:it", 1, 3),
+        ("https://news.google.com/rss/search?q=mondo&hl=it&gl=IT&ceid=IT:it", 2, 3),
         ("https://www.ansa.it/sito/ansait_rss.xml", 1, 3),
-        ("https://www.repubblica.it/rss/homepage/rss2.0.xml", 0, 2),
+        ("https://www.repubblica.it/rss/homepage/rss2.0.xml", 1, 2),
     ]
     for url, skip, limit in feeds:
         try:
