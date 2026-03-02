@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.36"
+SPEC_VERSION = "1.3.37"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -597,44 +597,44 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <row gap="10" h="310">
       <!-- Left col: Interno + Esterno -->
       <col flex="1" gap="10">
-        <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" flex="1">
-          <label text="Interno" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{indoor_temp}" font="16" color="#5B21B6" align="center" bold="true"/>
-          <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
+        <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
+          <label text="Interno" font="18" color="#CCCCEE" bold="true" align="center"/>
+          <label text="{indoor_temp}" font="16" color="#FFFFFF" align="center" bold="true"/>
+          <label text="{indoor_hum}" font="16" color="#AAAACC" align="center"/>
         </card>
-        <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" flex="1">
-          <label text="Esterno" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{outdoor_temp}" font="24" color="#5B21B6" align="center" bold="true"/>
-          <label text="{outdoor_hum}" font="16" color="#888888" align="center"/>
+        <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
+          <label text="Esterno" font="18" color="#CCCCEE" bold="true" align="center"/>
+          <label text="{outdoor_temp}" font="24" color="#FFFFFF" align="center" bold="true"/>
+          <label text="{outdoor_hum}" font="16" color="#AAAACC" align="center"/>
         </card>
       </col>
       <!-- Center: tall date card -->
-      <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
-        <label text="{weekday}" font="28" color="#444444" align="center"/>
+      <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
+        <label text="{weekday}" font="28" color="#CCCCEE" align="center"/>
         <label text="{day}" font="128" color="{day_color}" align="center" bold="true"/>
-        <label text="{month_name}" font="28" color="#444444" align="center"/>
+        <label text="{month_name}" font="28" color="#CCCCEE" align="center"/>
         <row gap="0" h="26">
-          <label text="{time}" font="22" bold="true" color="#5B21B6" align="center"/>
-          <label text=".{time_ss}" font="16" color="#5B21B6"/>
+          <label text="{time}" font="22" bold="true" color="#FFFFFF" align="center"/>
+          <label text=".{time_ss}" font="16" color="#DDDDFF"/>
         </row>
       </card>
       <!-- Right col: tVOC + CO2 -->
       <col flex="1" gap="10">
-        <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" flex="1" valign="center">
-          <label text="tVOC" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{voc}" font="24" color="#5B21B6" align="center" bold="true"/>
-          <label text="idx" font="16" color="#888888" align="center"/>
+        <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1" valign="center">
+          <label text="tVOC" font="18" color="#CCCCEE" bold="true" align="center"/>
+          <label text="{voc}" font="24" color="#FFFFFF" align="center" bold="true"/>
+          <label text="idx" font="16" color="#AAAACC" align="center"/>
         </card>
-        <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" flex="1">
-          <label text="CO2" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{co2}" font="24" color="#5B21B6" align="center" bold="true"/>
-          <label text="{co2_unit}" font="16" color="#888888" align="center"/>
+        <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
+          <label text="CO2" font="18" color="#CCCCEE" bold="true" align="center"/>
+          <label text="{co2}" font="24" color="#FFFFFF" align="center" bold="true"/>
+          <label text="{co2_unit}" font="16" color="#AAAACC" align="center"/>
         </card>
       </col>
     </row>
-    <label text="agg. {data_age}" font="12" color="#AAAAAA" align="right" w="100%"/>
+    <label text="agg. {data_age}" font="12" color="#CCCCEE" align="right" w="100%"/>
     <!-- Bottom: scrollable full buongiorno -->
-    <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="14" w="100%" scroll="true" scrollbar="false" gap="16">
+    <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="0" radius="12" pad="14" w="100%" scroll="true" scrollbar="false" gap="16">
       <card bg="#FFF3E0" radius="6" pad="10" w="100%" visible="{scioperi_visible}">
         <label text="⚠ Scioperi in arrivo" font="18" color="#E65100" bold="true"/>
         <label text="{scioperi_text}" font="16" color="#BF360C" max_lines="0"/>
