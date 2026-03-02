@@ -676,16 +676,18 @@ lv_obj_t* WidgetFactory::_buildEventsList(lv_obj_t* parent, const AttrMap& attrs
 // _buildBigClock
 // =============================================================================
 lv_obj_t* WidgetFactory::_buildBigClock(lv_obj_t* parent, const AttrMap& attrs) {
-    int fontSize   = _attrInt(attrs, "font", 48);  // use 48 (largest compiled-in)
+    int fontSize   = _attrInt(attrs, "font", 48);
+    bool bold      = _attrBool(attrs, "bold", false);
     lv_color_t col = _attrColor(attrs, "color", 0x1A1A2E);
     String align   = _attr(attrs, "align", "center");
     String format  = _attr(attrs, "format", "HH:MM");
 
     // Decide which placeholder to use based on format
-    const char* placeholder = (format == "HH:MM:SS") ? "{time_sec}" : "{time}";
+    const char* placeholder = (format == "HH:MM:SS") ? "{time_sec}" :
+                              (format == "SS")        ? "{time_ss}"  : "{time}";
 
     lv_obj_t* lbl = lv_label_create(parent);
-    lv_hlp_set_font(lbl, lv_hlp_font(fontSize));
+    lv_hlp_set_font(lbl, bold ? lv_hlp_font_bold(fontSize) : lv_hlp_font(fontSize));
     lv_hlp_set_text_color(lbl, col);
 
     String resolved = _resolveAndRegister(lbl, placeholder);

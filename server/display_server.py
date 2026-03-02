@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.27"
+SPEC_VERSION = "1.3.28"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -573,6 +573,8 @@ def build_data():
         "meteo_summary": strip_emoji(meteo_summary),
         "curiosity": strip_emoji(curiosity),
         "month_name": MONTHS_IT[now.month - 1],
+        "weekday_long": DAYS_IT_FULL[now.weekday()],
+        "year":        str(now.year),
         "cal_header":  f"{MONTHS_IT[now.month-1]} {now.year}",
         "cal_year":     str(now.year),
         "cal_month":    str(now.month),
@@ -673,19 +675,24 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </card>
   </screen>
 
-  <screen id="clock" bg="#F5F5F5">
-    <big_clock font="128" color="#1A1A2E" align="center" format="HH:MM:SS" bold="true"/>
-    <label text="{weekday} {day} {month}" font="20" color="#666666" align="center"/>
-    <row gap="12" pad="16">
-      <card flex="1" bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16">
-        <label text="▲ Interno" font="13" color="#666666" align="center"/>
-        <label text="{indoor_temp}" font="32" color="#5B21B6" align="center" bold="true"/>
-        <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
+  <screen id="clock" bg="#4A235A" grad_color="#1B4F72" pad="12">
+    <!-- Card orologio -->
+    <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" w="100%" gap="4">
+      <big_clock font="96" color="#FFFFFF" align="center" format="HH:MM" bold="true"/>
+      <big_clock font="48" color="#DDDDFF" align="center" format="SS" bold="true"/>
+      <label text="{weekday_long}, {day} {month_name} {year}" font="18" color="#CCCCEE" align="center"/>
+    </card>
+    <!-- Card temperature -->
+    <row gap="12" w="100%">
+      <card flex="1" bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16">
+        <label text="▲ Interno" font="13" color="#CCCCEE" align="center"/>
+        <label text="{indoor_temp}" font="32" color="#FFFFFF" align="center" bold="true"/>
+        <label text="{indoor_hum}" font="14" color="#AAAACC" align="center"/>
       </card>
-      <card flex="1" bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16">
-        <label text="☁ Esterno" font="13" color="#666666" align="center"/>
-        <label text="{outdoor_temp}" font="32" color="#5B21B6" align="center" bold="true"/>
-        <label text="{condition}" font="13" color="#888888" align="center"/>
+      <card flex="1" bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16">
+        <label text="☁ Esterno" font="13" color="#CCCCEE" align="center"/>
+        <label text="{outdoor_temp}" font="32" color="#FFFFFF" align="center" bold="true"/>
+        <label text="{condition}" font="13" color="#AAAACC" align="center"/>
       </card>
     </row>
   </screen>
