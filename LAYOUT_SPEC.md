@@ -303,7 +303,7 @@ No attributes.
 | `{date}` | string | 1min | e.g. "2 marzo 2026" |
 | `{day}` | string | 1min | Day number e.g. "2" |
 | `{weekday}` | string | 1min | e.g. "Lunedì" |
-| `{month}` | string | 1min | e.g. "Marzo" |
+| `{month}` | string | 1min | Full Italian name e.g. "Marzo" (NOT "mar") |
 | `{cal_year}` | int | daily | Current year |
 | `{cal_month}` | int | daily | Current month 1-12 |
 | `{cal_today}` | int | daily | Current day 1-31 |
