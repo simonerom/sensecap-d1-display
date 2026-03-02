@@ -64,3 +64,16 @@ def setup_all(source, target, env):
     _copy_periman_stub(env)
 
 env.AddPreAction("buildprog", setup_all)
+
+# Fix font includes: lv_font_conv generates #include "lvgl/lvgl.h" but we need "lvgl.h"
+import os, re
+fonts_dir = os.path.join(env.subst("$PROJECT_DIR"), "src", "fonts")
+if os.path.isdir(fonts_dir):
+    for fname in os.listdir(fonts_dir):
+        if fname.endswith(".c"):
+            fpath = os.path.join(fonts_dir, fname)
+            with open(fpath) as f:
+                txt = f.read()
+            if '#include "lvgl/lvgl.h"' in txt:
+                with open(fpath, "w") as f:
+                    f.write(txt.replace('#include "lvgl/lvgl.h"', '#include "lvgl.h"'))
