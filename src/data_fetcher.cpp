@@ -178,13 +178,19 @@ bool DataFetcher::_parseDataJson(const String& body, DataPayload& out) {
         out.scalars[kv.key().c_str()] = kv.value().as<String>();
     }
 
-    // news array → flat strings
-    if (doc["news"].is<JsonArray>()) {
-        std::vector<String> items;
-        for (JsonVariant v : doc["news"].as<JsonArray>()) {
-            items.push_back(v.as<String>());
+    // generic array keys → flat strings
+    static const char* ARRAY_KEYS[] = {
+        "news", "news_italia", "news_estero", "news_milano", "scioperi", nullptr
+    };
+    for (int ki = 0; ARRAY_KEYS[ki]; ki++) {
+        const char* key = ARRAY_KEYS[ki];
+        if (doc[key].is<JsonArray>()) {
+            std::vector<String> items;
+            for (JsonVariant v : doc[key].as<JsonArray>()) {
+                items.push_back(v.as<String>());
+            }
+            out.arrays[key] = items;
         }
-        out.arrays["news"] = items;
     }
 
     // events array → "HH:MM  date  Title" strings
