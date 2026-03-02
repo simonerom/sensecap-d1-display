@@ -470,24 +470,28 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         lv_hlp_set_border_none(cell);
         lv_hlp_set_radius(cell, 8);
         lv_hlp_no_scroll(cell);
-        lv_hlp_set_pad_all(cell, 4);
-        lv_hlp_flex_col(cell, 1);
-        lv_obj_set_style_flex_main_place(cell, LV_FLEX_ALIGN_CENTER, 0);
-        lv_obj_set_style_flex_cross_place(cell, LV_FLEX_ALIGN_CENTER, 0);
+        lv_hlp_set_pad_all(cell, 0);
+        lv_obj_set_style_layout(cell, 0, 0);  // no flex — manual placement
 
-        // Day number label
+        // Day number label: centered in cell
         lv_obj_t* lbl = lv_label_create(cell);
         lv_label_set_text(lbl, "");
         lv_hlp_set_font(lbl, lv_hlp_font(14));
         lv_hlp_set_text_color(lbl, txtCol);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_size(lbl, LV_PCT(100), LV_PCT(100));
+        lv_obj_set_style_pad_all(lbl, 0, 0);
+        lv_obj_set_style_text_opa(lbl, LV_OPA_COVER, 0);
+        lv_obj_set_style_align(lbl, LV_ALIGN_CENTER, 0);
 
-        // Event dot (hidden by default)
+        // Event dot: pinned to bottom-center
         lv_obj_t* dot = lv_obj_create(cell);
         lv_obj_set_size(dot, 18, 3);
         lv_hlp_set_bg(dot, dotCol);
         lv_hlp_set_border_none(dot);
         lv_hlp_set_radius(dot, 2);
+        lv_obj_set_style_align(dot, LV_ALIGN_BOTTOM_MID, 0);
+        lv_obj_set_style_y(dot, -3, 0);
         lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
 
         cells[i] = cell;
