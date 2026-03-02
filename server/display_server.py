@@ -500,37 +500,39 @@ def build_data():
     meteo_summary = build_meteo_summary(now, weather, events)
     curiosity = get_curiosity(now)
 
+    # event_days
+    ev_days = set()
+    for ev in events:
+        try:
+            date_part = ev.split("|||")[1] if "|||" in ev else ""
+            for mi, mn in enumerate(MONTHS_IT_FULL):
+                if mn in date_part:
+                    rest = date_part.replace(mn, "").strip()
+                    day_num = int(rest.split(",")[0].split()[0])
+                    if mi + 1 == now.month:
+                        ev_days.add(day_num)
+                    break
+        except Exception:
+            pass
+    event_days_str = ",".join(str(d) for d in sorted(ev_days))
+
+    # holiday_days
+    hol_days = set()
+    for day_num in range(1, 32):
+        try:
+            dt = datetime(now.year, now.month, day_num).date()
+            if is_italian_holiday(dt) and dt.weekday() < 6:
+                hol_days.add(day_num)
+        except Exception:
+            pass
+    holiday_days_str = ",".join(str(d) for d in sorted(hol_days))
+
     return {
-
-        # event_days from events strings "TITLE|||Marzo 15, ..."
-        ev_days = set()
-        for ev in events:
-            try:
-                date_part = ev.split("|||")[1] if "|||" in ev else ""
-                for mi, mn in enumerate(MONTHS_IT_FULL):
-                    if mn in date_part:
-                        rest = date_part.replace(mn, "").strip()
-                        day_num = int(rest.split(",")[0].split()[0])
-                        if mi + 1 == now.month:
-                            ev_days.add(day_num)
-                        break
-            except Exception:
-                pass
-        result["event_days"] = ",".join(str(d) for d in sorted(ev_days))
-
-        # holiday_days: Italian public holidays in current month
-        hol_days = set()
-        for day_num in range(1, 32):
-            try:
-                dt = datetime(now.year, now.month, day_num).date()
-                if is_italian_holiday(dt) and dt.weekday() < 6:
-                    hol_days.add(day_num)
-            except Exception:
-                pass
-        result["holiday_days"] = ",".join(str(d) for d in sorted(hol_days))
         "_version":   SPEC_VERSION,
         "updated_at": now.strftime("%H:%M"),
         "updated_ts": int(now.timestamp()),
+        "event_days":   event_days_str,
+        "holiday_days": holiday_days_str,
         "_timestamp": now.isoformat(),
 
         "outdoor_temp":    weather["outdoor_temp"],
