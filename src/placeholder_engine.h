@@ -90,7 +90,7 @@ public:
 private:
     // Scalar values: key → current string value
     std::map<String, String> _values;
-    time_t                   _dataUpdatedTs = 0;
+    uint32_t                 _dataFetchedMs = 0;  // millis() when last applyData called
 
     // Scalar label registry: key → list of lv_obj_t* labels
     std::map<String, std::vector<lv_obj_t*>> _labels;

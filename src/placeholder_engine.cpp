@@ -109,15 +109,13 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
     snprintf(buf, sizeof(buf), "%d", t.tm_mday);
     setValue("cal_today", buf);
 
-    // {data_age} — elapsed since last server data update
-    if (_dataUpdatedTs > 0) {
-        time_t nowUtc = time(nullptr);
-        int32_t elapsed = (int32_t)(nowUtc - _dataUpdatedTs);
-        if (elapsed < 0) elapsed = 0;
+    // {data_age} — elapsed since last data fetch (millis-based, no NTP)
+    if (_dataFetchedMs > 0) {
+        uint32_t elapsed = (millis() - _dataFetchedMs) / 1000;
         char ageBuf[16];
-        if (elapsed < 60)        snprintf(ageBuf, sizeof(ageBuf), "%ds fa", (int)elapsed);
-        else if (elapsed < 3600) snprintf(ageBuf, sizeof(ageBuf), "%dm fa", (int)(elapsed / 60));
-        else                     snprintf(ageBuf, sizeof(ageBuf), "%dh fa", (int)(elapsed / 3600));
+        if (elapsed < 60)        snprintf(ageBuf, sizeof(ageBuf), "%us fa", elapsed);
+        else if (elapsed < 3600) snprintf(ageBuf, sizeof(ageBuf), "%um fa", elapsed / 60);
+        else                     snprintf(ageBuf, sizeof(ageBuf), "%uh fa", elapsed / 3600);
         setValue("data_age", ageBuf);
     } else {
         setValue("data_age", "--");
