@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.38"
+SPEC_VERSION = "1.3.39"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -611,7 +611,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <!-- Center: tall date card -->
       <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
         <label text="{weekday}" font="28" color="#CCCCEE" align="center"/>
-        <label text="{day}" font="128" color="{day_color}" align="center" bold="true"/>
+        <label text="{day}" font="128" color="#FFFFFF" align="center" bold="true"/>
         <label text="{month_name}" font="28" color="#CCCCEE" align="center"/>
         <row gap="0" h="26">
           <label text="{time}" font="22" bold="true" color="#FFFFFF" align="center"/>
