@@ -54,7 +54,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.2.4"
+SPEC_VERSION = "1.2.5"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -442,7 +442,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.2.4">
+<screens version="1.2.5">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
@@ -460,10 +460,10 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
         </card>
       </col>
       <!-- Center: tall date card -->
-      <card bg="#FFFFFF" radius="16" pad_h="8" pad_v="8" gap="0" tight="true" flex="2" h="100%">
-        <label text="{weekday}" font="22" color="#444444" align="center"/>
+      <card bg="#FFFFFF" radius="16" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
+        <label text="{weekday}" font="28" color="#444444" align="center"/>
         <label text="{day}" font="192" color="{day_color}" align="center" bold="true"/>
-        <label text="{month_name}" font="22" color="#444444" align="center"/>
+        <label text="{month_name}" font="28" color="#444444" align="center"/>
       </card>
       <!-- Right col: VOC + spare -->
       <col flex="1" gap="10">
