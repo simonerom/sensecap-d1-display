@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.37"
+SPEC_VERSION = "1.3.38"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -599,12 +599,12 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <col flex="1" gap="10">
         <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
           <label text="Interno" font="18" color="#CCCCEE" bold="true" align="center"/>
-          <label text="{indoor_temp}" font="16" color="#FFFFFF" align="center" bold="true"/>
+          <label text="{indoor_temp}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="{indoor_hum}" font="16" color="#AAAACC" align="center"/>
         </card>
         <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
           <label text="Esterno" font="18" color="#CCCCEE" bold="true" align="center"/>
-          <label text="{outdoor_temp}" font="24" color="#FFFFFF" align="center" bold="true"/>
+          <label text="{outdoor_temp}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="{outdoor_hum}" font="16" color="#AAAACC" align="center"/>
         </card>
       </col>
@@ -622,12 +622,12 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <col flex="1" gap="10">
         <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1" valign="center">
           <label text="tVOC" font="18" color="#CCCCEE" bold="true" align="center"/>
-          <label text="{voc}" font="24" color="#FFFFFF" align="center" bold="true"/>
+          <label text="{voc}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="idx" font="16" color="#AAAACC" align="center"/>
         </card>
         <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
           <label text="CO2" font="18" color="#CCCCEE" bold="true" align="center"/>
-          <label text="{co2}" font="24" color="#FFFFFF" align="center" bold="true"/>
+          <label text="{co2}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="{co2_unit}" font="16" color="#AAAACC" align="center"/>
         </card>
       </col>
