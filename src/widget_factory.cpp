@@ -136,9 +136,15 @@ lv_obj_t* WidgetFactory::_buildCard(lv_obj_t* parent, const AttrMap& attrs) {
     String wStr    = _attr(attrs, "w", "100%");
     String hStr    = _attr(attrs, "h", "auto");
 
+    bool tight = _attrBool(attrs, "tight", false);
     lv_obj_t* card = lv_hlp_card(parent, bg, (lv_coord_t)radius, 0);
     lv_obj_set_style_pad_hor(card, (lv_coord_t)pad_h, 0);
     lv_obj_set_style_pad_ver(card, (lv_coord_t)pad_v, 0);
+    if (tight) {
+        // Zero out all child padding so labels sit flush
+        lv_obj_set_style_pad_row(card, 0, 0);
+        lv_obj_set_style_pad_gap(card, 0, 0);
+    }
     lv_hlp_flex_col(card, (lv_coord_t)gap);
 
     lv_coord_t w = _parseDim(wStr.c_str(), true);
