@@ -54,7 +54,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.2.3"
+SPEC_VERSION = "1.2.4"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -442,7 +442,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.2.3">
+<screens version="1.2.4">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
@@ -479,16 +479,16 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </row>
     <!-- Bottom: scrollable full buongiorno -->
     <card bg="#FFFFFF" radius="16" pad="14" w="100%" scroll="true" gap="6">
-      <label text="★ Buongiorno" font="18" color="#1A1A2E" bold="true"/>
-      <label text="{message}" font="14" color="#444444" max_lines="0"/>
-      <label text="◆ Curiosita" font="16" color="#1A1A2E" bold="true"/>
-      <label text="{curiosity}" font="13" color="#555555" max_lines="0"/>
-      <label text="$ Mercati" font="16" color="#1A1A2E" bold="true"/>
+      <label text="★ Buongiorno" font="22" color="#1A1A2E" bold="true"/>
+      <label text="{message}" font="18" color="#444444" max_lines="0"/>
+      <label text="◆ Curiosita" font="22" color="#1A1A2E" bold="true"/>
+      <label text="{curiosity}" font="18" color="#555555" max_lines="0"/>
+      <label text="$ Mercati" font="22" color="#1A1A2E" bold="true"/>
       <crypto_row symbol="{btc_symbol}" price="{btc_price}" change="{btc_change}" trend="{btc_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{eth_symbol}" price="{eth_price}" change="{eth_change}" trend="{eth_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{iotx_symbol}" price="{iotx_price}" change="{iotx_change}" trend="{iotx_trend}" up_color="#00A885" down_color="#E53935"/>
-      <label text="★ Notizie" font="16" color="#1A1A2E" bold="true"/>
-      <list items="{news}" font="13" color="#333333" divider="#DDDDDD" max_lines="2"/>
+      <label text="★ Notizie" font="22" color="#1A1A2E" bold="true"/>
+      <list items="{news}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
     </card>
     <card bg="#E53935" radius="12" pad="12" w="100%" visible="{alert_visible}">
       <label text="⚠ {alert}" font="16" color="#FFFFFF" align="center"/>
