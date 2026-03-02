@@ -445,6 +445,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     lv_obj_set_width(hdr, LV_PCT(100));
     lv_obj_set_height(hdr, 24);
     lv_hlp_flex_row(hdr, 0);
+    lv_obj_set_style_pad_column(hdr, 3, 0);  // match grid gap
     for (int d = 0; d < 7; d++) {
         lv_obj_t* lbl = lv_label_create(hdr);
         lv_label_set_text(lbl, dayNames[d]);
@@ -506,12 +507,11 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         int y = state->year, m = state->month, today = state->today;
         if (y < 2020 || m < 1 || m > 12) return;
 
-        struct tm t;
-        memset(&t, 0, sizeof(t));
-        t.tm_year = y - 1900; t.tm_mon = m - 1; t.tm_mday = 1;
-        t.tm_isdst = -1;
-        mktime(&t);
-        int startDow = (t.tm_wday + 6) % 7; // 0=Mon
+        // Sakamoto's algorithm: returns 0=Sun..6=Sat, no mktime needed
+        static const int _t[] = {0,3,2,5,0,3,5,1,4,6,2,4};
+        int _y = y; if (m < 3) _y--;
+        int wday = (_y + _y/4 - _y/100 + _y/400 + _t[m-1] + 1) % 7; // day=1
+        int startDow = (wday + 6) % 7; // 0=Mon..6=Sun
 
         int daysInMonth = 31;
         if (m==4||m==6||m==9||m==11) daysInMonth=30;
