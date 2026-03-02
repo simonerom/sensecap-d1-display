@@ -89,6 +89,7 @@ private:
     lv_obj_t* _overlayScreen;
     lv_obj_t* _spinnerOverlay;
     lv_obj_t* _lblOverlayMsg;
+    lv_obj_t* _btnOverlayDismiss;  // "OK" button shown on error overlays
 
     // ---- Nav dots ----
     lv_obj_t* _dotContainer;
@@ -120,6 +121,7 @@ private:
     static void _onSpinboxIncrement(lv_event_t* e);
     static void _onSpinboxDecrement(lv_event_t* e);
     static void _onShowPwdClicked(lv_event_t* e);
+    static void _onOverlayDismiss(lv_event_t* e);
 };
 
 // LVGL display driver setup (Arduino_GFX + PCA9535 RGB panel)

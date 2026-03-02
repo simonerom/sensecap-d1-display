@@ -418,7 +418,7 @@ UIManager::UIManager()
       _spinboxTZ(nullptr), _btnSave(nullptr), _btnShowPwd(nullptr),
       _keyboard(nullptr), _kbdPanel(nullptr), _kbdFieldLabel(nullptr), _kbdPreview(nullptr),
       _activeTA(nullptr),
-      _overlayScreen(nullptr), _spinnerOverlay(nullptr), _lblOverlayMsg(nullptr),
+      _overlayScreen(nullptr), _spinnerOverlay(nullptr), _lblOverlayMsg(nullptr), _btnOverlayDismiss(nullptr),
       _dotContainer(nullptr), _btnGear(nullptr),
       _currentPage(0), _overlayVisible(false), _settingsCallback(nullptr) {
     for (int i = 0; i < PAGE_COUNT; i++) _dots[i] = nullptr;
@@ -886,7 +886,20 @@ void UIManager::_createOverlay() {
     lv_label_set_text(_lblOverlayMsg, "Connecting...");
     lv_obj_set_style_text_color(_lblOverlayMsg, hex2color(COLOR_TEXT_PRIMARY), 0);
     lv_obj_set_style_text_font(_lblOverlayMsg, &lv_font_montserrat_18, 0);
-    lv_obj_align(_lblOverlayMsg, LV_ALIGN_CENTER, 0, 50);
+    lv_label_set_long_mode(_lblOverlayMsg, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(_lblOverlayMsg, SCREEN_WIDTH - 60);
+    lv_obj_align(_lblOverlayMsg, LV_ALIGN_CENTER, 0, 20);
+
+    _btnOverlayDismiss = lv_btn_create(_overlayScreen);
+    lv_obj_set_size(_btnOverlayDismiss, 160, 44);
+    lv_obj_align(_btnOverlayDismiss, LV_ALIGN_CENTER, 0, 100);
+    lv_obj_set_style_bg_color(_btnOverlayDismiss, hex2color(COLOR_ACCENT), 0);
+    lv_obj_add_event_cb(_btnOverlayDismiss, _onOverlayDismiss, LV_EVENT_SHORT_CLICKED, this);
+    lv_obj_t* lblDismiss = lv_label_create(_btnOverlayDismiss);
+    lv_label_set_text(lblDismiss, LV_SYMBOL_OK "  OK");
+    lv_obj_set_style_text_font(lblDismiss, &lv_font_montserrat_18, 0);
+    lv_obj_center(lblDismiss);
+    lv_obj_add_flag(_btnOverlayDismiss, LV_OBJ_FLAG_HIDDEN);  // only shown on errors
 
     lv_obj_add_flag(_overlayScreen, LV_OBJ_FLAG_HIDDEN);
 }
@@ -899,6 +912,8 @@ void UIManager::showConnecting(const String& ssid) {
     String msg = "Connecting to WiFi...\n" + ssid;
     lv_label_set_text(_lblOverlayMsg, msg.c_str());
     lv_obj_clear_flag(_spinnerOverlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(_btnOverlayDismiss, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_align(_lblOverlayMsg, LV_ALIGN_CENTER, 0, 50);
     lv_obj_clear_flag(_overlayScreen, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(_overlayScreen);
     _overlayVisible = true;
@@ -908,6 +923,8 @@ void UIManager::showError(const String& msg) {
     if (!_overlayScreen) return;
     lv_label_set_text(_lblOverlayMsg, msg.c_str());
     lv_obj_add_flag(_spinnerOverlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_align(_lblOverlayMsg, LV_ALIGN_CENTER, 0, -30);
+    lv_obj_clear_flag(_btnOverlayDismiss, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(_overlayScreen, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(_overlayScreen);
     _overlayVisible = true;
@@ -1134,6 +1151,11 @@ void UIManager::_onSpinboxIncrement(lv_event_t* e) {
 void UIManager::_onSpinboxDecrement(lv_event_t* e) {
     UIManager* self = (UIManager*)lv_event_get_user_data(e);
     if (self && self->_spinboxTZ) lv_spinbox_decrement(self->_spinboxTZ);
+}
+
+void UIManager::_onOverlayDismiss(lv_event_t* e) {
+    UIManager* self = (UIManager*)lv_event_get_user_data(e);
+    if (self) self->hideOverlay();
 }
 
 void UIManager::_onShowPwdClicked(lv_event_t* e) {
