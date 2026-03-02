@@ -199,8 +199,13 @@ lv_obj_t* WidgetFactory::_buildLabel(lv_obj_t* parent, const AttrMap& attrs) {
     lv_hlp_set_font(lbl, lv_hlp_font_ex(fontSize, bold));
     // Zero label's own padding — spacing is controlled by parent gap
     lv_obj_set_style_pad_all(lbl, 0, 0);
-    // Full width so text wraps at parent boundary
-    lv_obj_set_width(lbl, LV_PCT(100));
+    // flex="1" → grow to fill row; otherwise full width for wrapping
+    uint8_t flexGrow = 0;
+    if (_hasFlex(attrs, flexGrow) && flexGrow > 0) {
+        lv_hlp_flex_grow(lbl, flexGrow);
+    } else {
+        lv_obj_set_width(lbl, LV_PCT(100));
+    }
 
     if (maxLines > 0) {
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_CLIP);
