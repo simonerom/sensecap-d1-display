@@ -197,16 +197,19 @@ def get_weather():
         prec  = d["hourly"]["precipitation_probability"]
         now   = datetime.now(TZ)
 
-        def rain_prob_window(h_start, h_end):
+        def rain_prob_window(h_start, h_end, day_offset=0):
             probs = []
+            target = (now + timedelta(days=day_offset)).date()
             for i, t in enumerate(hours):
                 dt = datetime.fromisoformat(t)
-                if dt.date() == now.date() and h_start <= dt.hour < h_end:
+                if dt.date() == target and h_start <= dt.hour < h_end:
                     probs.append(prec[i])
             return max(probs) if probs else 0
 
         rain_morning = rain_prob_window(8, 9)    # 8:30-9:00 commute
         rain_evening = rain_prob_window(17, 18)  # 17:30-18:00 commute
+        rain_max_today   = rain_prob_window(6, 22)
+        rain_max_tomorrow= rain_prob_window(6, 22, day_offset=1)
 
         # 3-day forecast
         forecast = []
@@ -227,6 +230,8 @@ def get_weather():
             "wind":         f"{wind} km/h",
             "rain_morning": rain_morning,
             "rain_evening": rain_evening,
+            "rain_max_today": rain_max_today,
+            "rain_max_tomorrow": rain_max_tomorrow,
             "forecast":     forecast,
         }
     except Exception as e:
@@ -238,6 +243,8 @@ def get_weather():
             "wind":         "--",
             "rain_morning": 0,
             "rain_evening": 0,
+            "rain_max_today": 0,
+            "rain_max_tomorrow": 0,
             "forecast":     [],
         }
 
@@ -438,10 +445,36 @@ def build_roberta_note(now, rain_morning, rain_evening):
 
 def build_meteo_summary(now, weather, events):
     parts = []
+    # Line 1: condition + temp + wind
     parts.append(f"{weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}")
+
+    # Line 2: today rain + forecast
+    fc = weather.get("forecast", [])
+    if fc:
+        today_fc = fc[0]
+        precip = today_fc.get("precip", 0) or 0
+        prob = weather.get("rain_max_today", 0)
+        if prob >= 20 or precip >= 1:
+            rain_str = f"pioggia {prob}% ({precip:.0f}mm)"
+        else:
+            rain_str = "nessuna pioggia"
+        parts.append(f"Oggi: {today_fc['desc']}, {today_fc['max']}°/{today_fc['min']}°C — {rain_str}")
+    if len(fc) > 1:
+        tmr = fc[1]
+        precip_tmr = tmr.get("precip", 0) or 0
+        prob_tmr = weather.get("rain_max_tomorrow", 0)
+        if prob_tmr >= 20 or precip_tmr >= 1:
+            rain_tmr = f"pioggia {prob_tmr}% ({precip_tmr:.0f}mm)"
+        else:
+            rain_tmr = "nessuna pioggia"
+        parts.append(f"Domani: {tmr['desc']}, {tmr['max']}°/{tmr['min']}°C — {rain_tmr}")
+
+    # Roberta commute note
     roberta = build_roberta_note(now, weather["rain_morning"], weather["rain_evening"])
     if roberta:
         parts.append(f"\n▶ Roberta, se oggi vai in ufficio:\n{roberta}")
+
+    # Today's events
     today_str = now.strftime("%-d %b").lower()
     today_events = [e for e in events if e["date"] == today_str]
     if today_events:
