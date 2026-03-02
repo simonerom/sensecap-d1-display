@@ -12,12 +12,21 @@ bool WiFiManager::connect(const char* ssid, const char* password, uint32_t timeo
     DEBUG_PRINTF("[WiFi] Connecting to: %s\n", ssid);
 
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(false);  // We handle reconnect manually
     WiFi.begin(ssid, password);
 
     uint32_t start = millis();
     while (WiFi.status() != WL_CONNECTED) {
         if (millis() - start > timeout_ms) {
             DEBUG_PRINTLN("[WiFi] Connection timeout!");
+            WiFi.disconnect(true);
+            _connected = false;
+            return false;
+        }
+        wl_status_t st = WiFi.status();
+        if (st == WL_NO_SSID_AVAIL || st == WL_CONNECT_FAILED) {
+            DEBUG_PRINTF("[WiFi] Connection failed (status=%d)\n", st);
+            WiFi.disconnect(true);
             _connected = false;
             return false;
         }

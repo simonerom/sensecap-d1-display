@@ -415,7 +415,9 @@ UIManager::UIManager()
       _lblWeatherIcon(nullptr), _lblWeatherDesc(nullptr),
       _alertBanner(nullptr), _lblAlertText(nullptr),
       _taSSID(nullptr), _taPassword(nullptr), _taHost(nullptr), _taPort(nullptr),
-      _spinboxTZ(nullptr), _btnSave(nullptr), _keyboard(nullptr), _activeTA(nullptr),
+      _spinboxTZ(nullptr), _btnSave(nullptr), _btnShowPwd(nullptr),
+      _keyboard(nullptr), _kbdPanel(nullptr), _kbdFieldLabel(nullptr), _kbdPreview(nullptr),
+      _activeTA(nullptr),
       _overlayScreen(nullptr), _spinnerOverlay(nullptr), _lblOverlayMsg(nullptr),
       _dotContainer(nullptr), _btnGear(nullptr),
       _currentPage(0), _overlayVisible(false), _settingsCallback(nullptr) {
@@ -657,13 +659,27 @@ void UIManager::_createPage3(lv_obj_t* parent) {
     lv_obj_align(lblPass, LV_ALIGN_TOP_LEFT, 216, 22);
 
     _taPassword = lv_textarea_create(parent);
-    lv_obj_set_size(_taPassword, 240, 34);
+    lv_obj_set_size(_taPassword, 206, 34);
     lv_obj_align(_taPassword, LV_ALIGN_TOP_LEFT, 216, 36);
     lv_textarea_set_one_line(_taPassword, true);
     lv_textarea_set_password_mode(_taPassword, true);
     lv_textarea_set_placeholder_text(_taPassword, "Password");
     lv_obj_set_style_text_font(_taPassword, &lv_font_montserrat_14, 0);
     lv_obj_add_event_cb(_taPassword, _onTAFocused, LV_EVENT_FOCUSED, this);
+
+    // Eye button: toggle password visibility
+    _btnShowPwd = lv_btn_create(parent);
+    lv_obj_set_size(_btnShowPwd, 30, 34);
+    lv_obj_align(_btnShowPwd, LV_ALIGN_TOP_LEFT, 424, 36);
+    lv_obj_set_style_bg_color(_btnShowPwd, hex2color(0x333355), 0);
+    lv_obj_set_style_border_width(_btnShowPwd, 0, 0);
+    lv_obj_set_style_radius(_btnShowPwd, 4, 0);
+    lv_obj_set_style_pad_all(_btnShowPwd, 4, 0);
+    lv_obj_add_event_cb(_btnShowPwd, _onShowPwdClicked, LV_EVENT_SHORT_CLICKED, this);
+    lv_obj_t* eyeIco = lv_label_create(_btnShowPwd);
+    lv_label_set_text(eyeIco, LV_SYMBOL_EYE_OPEN);
+    lv_obj_set_style_text_color(eyeIco, hex2color(COLOR_TEXT_SECONDARY), 0);
+    lv_obj_center(eyeIco);
 
     // ---- Server Host ----
     lv_obj_t* lblHost = lv_label_create(parent);
@@ -741,13 +757,47 @@ void UIManager::_createPage3(lv_obj_t* parent) {
     lv_obj_set_style_text_font(lblSave, &lv_font_montserrat_14, 0);
     lv_obj_center(lblSave);
 
-    // ---- Virtual keyboard (hidden initially) ----
-    _keyboard = lv_keyboard_create(lv_scr_act());
-    lv_obj_set_size(_keyboard, SCREEN_WIDTH, 160);
+    // ---- Fullscreen keyboard panel (hidden initially) ----
+    // Layout: [field label 24px] [preview textarea 52px] [keyboard 260px] = 336px
+    // Panel slides up from bottom over the entire screen
+    _kbdPanel = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(_kbdPanel, SCREEN_WIDTH, 336);
+    lv_obj_align(_kbdPanel, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(_kbdPanel, hex2color(0x12122A), 0);
+    lv_obj_set_style_bg_opa(_kbdPanel, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(_kbdPanel, 0, 0);
+    lv_obj_set_style_radius(_kbdPanel, 0, 0);
+    lv_obj_set_style_pad_all(_kbdPanel, 6, 0);
+    lv_obj_clear_flag(_kbdPanel, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Field name label
+    _kbdFieldLabel = lv_label_create(_kbdPanel);
+    lv_label_set_text(_kbdFieldLabel, "");
+    lv_obj_set_style_text_color(_kbdFieldLabel, hex2color(COLOR_TEXT_SECONDARY), 0);
+    lv_obj_set_style_text_font(_kbdFieldLabel, &lv_font_montserrat_12, 0);
+    lv_obj_align(_kbdFieldLabel, LV_ALIGN_TOP_LEFT, 4, 0);
+
+    // Large preview textarea (shows what is being typed)
+    _kbdPreview = lv_textarea_create(_kbdPanel);
+    lv_obj_set_size(_kbdPreview, SCREEN_WIDTH - 12, 48);
+    lv_obj_align(_kbdPreview, LV_ALIGN_TOP_MID, 0, 18);
+    lv_textarea_set_one_line(_kbdPreview, true);
+    lv_obj_set_style_text_font(_kbdPreview, &lv_font_montserrat_22, 0);
+    lv_obj_set_style_bg_color(_kbdPreview, hex2color(0x1E1E3A), 0);
+    lv_obj_set_style_border_color(_kbdPreview, hex2color(COLOR_ACCENT), 0);
+    lv_obj_set_style_border_width(_kbdPreview, 2, 0);
+    lv_obj_set_style_radius(_kbdPreview, 6, 0);
+
+    // Keyboard — full width, tall keys
+    _keyboard = lv_keyboard_create(_kbdPanel);
+    lv_obj_set_size(_keyboard, SCREEN_WIDTH - 12, 262);
     lv_obj_align(_keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(_keyboard, hex2color(0x12122A), 0);
+    lv_keyboard_set_textarea(_keyboard, _kbdPreview);
     lv_obj_add_event_cb(_keyboard, _onKeyboardReady, LV_EVENT_READY, this);
     lv_obj_add_event_cb(_keyboard, _onKeyboardReady, LV_EVENT_CANCEL, this);
-    lv_obj_add_flag(_keyboard, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_add_flag(_kbdPanel, LV_OBJ_FLAG_HIDDEN);
 }
 
 // =============================================================================
@@ -992,14 +1042,35 @@ void UIManager::tick() {
 // Keyboard helpers
 // =============================================================================
 void UIManager::_showKeyboard(lv_obj_t* ta) {
+    if (!ta || !_kbdPanel || !_kbdPreview || !_kbdFieldLabel) return;
     _activeTA = ta;
-    lv_keyboard_set_textarea(_keyboard, ta);
-    lv_obj_clear_flag(_keyboard, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(_keyboard);
+
+    // Set field label
+    const char* fieldName = "Input";
+    if (ta == _taSSID)     fieldName = "WiFi SSID";
+    else if (ta == _taPassword) fieldName = "Password";
+    else if (ta == _taHost)     fieldName = "Server IP";
+    else if (ta == _taPort)     fieldName = "Port";
+    lv_label_set_text(_kbdFieldLabel, fieldName);
+
+    // Copy current text into preview (password shown in clear in panel)
+    lv_textarea_set_text(_kbdPreview, lv_textarea_get_text(ta));
+    // Show/hide password chars in preview matching the source field
+    bool isPwd = (ta == _taPassword) && lv_textarea_get_password_mode(ta);
+    lv_textarea_set_password_mode(_kbdPreview, isPwd);
+
+    lv_keyboard_set_textarea(_keyboard, _kbdPreview);
+    lv_obj_clear_flag(_kbdPanel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(_kbdPanel);
 }
 
 void UIManager::_hideKeyboard() {
-    lv_obj_add_flag(_keyboard, LV_OBJ_FLAG_HIDDEN);
+    if (!_kbdPanel) return;
+    // Copy preview text back to the real textarea
+    if (_activeTA && _kbdPreview) {
+        lv_textarea_set_text(_activeTA, lv_textarea_get_text(_kbdPreview));
+    }
+    lv_obj_add_flag(_kbdPanel, LV_OBJ_FLAG_HIDDEN);
     _activeTA = nullptr;
 }
 
@@ -1011,8 +1082,8 @@ void UIManager::_onTabChanged(lv_event_t* e) {
     if (!self || !self->_tabview) return;
     uint16_t page = lv_tabview_get_tab_act(self->_tabview);
     self->_updateNavDots(page);
-    // Hide keyboard when leaving settings page
-    if (page != 2 && self->_keyboard) {
+    // Hide keyboard panel when leaving settings page
+    if (page != 2) {
         self->_hideKeyboard();
     }
 }
@@ -1063,4 +1134,18 @@ void UIManager::_onSpinboxIncrement(lv_event_t* e) {
 void UIManager::_onSpinboxDecrement(lv_event_t* e) {
     UIManager* self = (UIManager*)lv_event_get_user_data(e);
     if (self && self->_spinboxTZ) lv_spinbox_decrement(self->_spinboxTZ);
+}
+
+void UIManager::_onShowPwdClicked(lv_event_t* e) {
+    UIManager* self = (UIManager*)lv_event_get_user_data(e);
+    if (!self || !self->_taPassword || !self->_btnShowPwd) return;
+
+    bool hidden = lv_textarea_get_password_mode(self->_taPassword);
+    lv_textarea_set_password_mode(self->_taPassword, !hidden);
+
+    // Update icon: eye-open when password hidden, eye-closed when visible
+    lv_obj_t* ico = lv_obj_get_child(self->_btnShowPwd, 0);
+    if (ico) {
+        lv_label_set_text(ico, hidden ? LV_SYMBOL_EYE_CLOSE : LV_SYMBOL_EYE_OPEN);
+    }
 }

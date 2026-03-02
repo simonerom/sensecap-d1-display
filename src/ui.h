@@ -78,8 +78,12 @@ private:
     lv_obj_t* _taPort;            // textarea: Server port
     lv_obj_t* _spinboxTZ;         // spinbox: timezone offset
     lv_obj_t* _btnSave;           // Save & Reboot button
-    lv_obj_t* _keyboard;          // virtual keyboard
-    lv_obj_t* _activeTA;          // currently focused textarea
+    lv_obj_t* _btnShowPwd;        // toggle password visibility
+    lv_obj_t* _keyboard;          // virtual keyboard (inside kbd panel)
+    lv_obj_t* _kbdPanel;          // fullscreen keyboard panel
+    lv_obj_t* _kbdFieldLabel;     // field name label inside panel
+    lv_obj_t* _kbdPreview;        // large textarea preview inside panel
+    lv_obj_t* _activeTA;          // currently focused textarea (settings page)
 
     // ---- Overlay (WiFi connecting / error) ----
     lv_obj_t* _overlayScreen;
@@ -115,6 +119,7 @@ private:
     static void _onGearClicked(lv_event_t* e);
     static void _onSpinboxIncrement(lv_event_t* e);
     static void _onSpinboxDecrement(lv_event_t* e);
+    static void _onShowPwdClicked(lv_event_t* e);
 };
 
 // LVGL display driver setup (Arduino_GFX + PCA9535 RGB panel)

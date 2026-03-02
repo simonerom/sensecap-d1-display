@@ -111,6 +111,7 @@ void taskNetwork(void* pvParams) {
     if (!connected) {
         DEBUG_PRINTLN("[Main] WiFi connection failed — redirecting to Settings.");
         if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
+            ui.hideOverlay();
             ui.goToSettings();
             xSemaphoreGive(dataMutex);
         }
