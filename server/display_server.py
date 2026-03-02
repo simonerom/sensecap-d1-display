@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.30"
+SPEC_VERSION = "1.3.31"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -575,6 +575,7 @@ def build_data():
         "month_name": MONTHS_IT[now.month - 1],
         "weekday_long": DAYS_IT_FULL[now.weekday()],
         "year":        str(now.year),
+        "clock_date":  f"{DAYS_IT_FULL[now.weekday()]}, {now.day} {MONTHS_IT[now.month-1]} {now.year}",
         "cal_header":  f"{MONTHS_IT[now.month-1]} {now.year}",
         "cal_year":     str(now.year),
         "cal_month":    str(now.month),
@@ -677,10 +678,10 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 
   <screen id="clock" bg="#4A235A" grad_color="#1B4F72" pad="12">
     <!-- Card orologio -->
-    <label text="{time_sec}" font="14" color="#CCCCEE" align="center"/>
+    <label text="{time_sec}" font="20" color="#CCCCEE" align="center"/>
     <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" w="100%" gap="4">
       <big_clock font="96" color="#FFFFFF" align="center" format="HH:MM" bold="true"/>
-      <label text="{weekday_long}, {day} {month_name} {year}" font="18" color="#CCCCEE" align="center"/>
+      <label text="{clock_date}" font="18" color="#CCCCEE" align="center"/>
     </card>
     <!-- Card temperature -->
     <row gap="12" w="100%">
