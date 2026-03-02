@@ -110,7 +110,8 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
 // Sensor update
 // =============================================================================
 void PlaceholderEngine::updateSensor(float tempC, float humPct, bool ok) {
-    if (!ok) {
+    // Sanity check: -45°C is SHT40 error sentinel, treat as not ok
+    if (!ok || tempC < -40.0f || tempC > 85.0f || humPct < 0.0f || humPct > 100.0f) {
         setValue("indoor_temp", "--°C");
         setValue("indoor_hum",  "--%");
         return;

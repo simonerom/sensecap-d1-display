@@ -194,6 +194,8 @@ lv_obj_t* WidgetFactory::_buildLabel(lv_obj_t* parent, const AttrMap& attrs) {
     lv_obj_t* lbl = lv_label_create(parent);
     lv_hlp_set_text_color(lbl, col);
     lv_hlp_set_font(lbl, lv_hlp_font_ex(fontSize, bold));
+    // Zero label's own padding — spacing is controlled by parent gap
+    lv_obj_set_style_pad_all(lbl, 0, 0);
 
     if (maxLines > 0) {
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_CLIP);
