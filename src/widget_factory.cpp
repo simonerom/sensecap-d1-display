@@ -183,8 +183,7 @@ lv_obj_t* WidgetFactory::_buildLabel(lv_obj_t* parent, const AttrMap& attrs) {
 
     lv_obj_t* lbl = lv_label_create(parent);
     lv_hlp_set_text_color(lbl, col);
-    // Use requested font size directly (bold=true is noted but Montserrat has no bold variant).
-    lv_hlp_set_font(lbl, lv_hlp_font(fontSize));
+    lv_hlp_set_font(lbl, lv_hlp_font_ex(fontSize, bold));
 
     if (maxLines > 0) {
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_CLIP);

@@ -126,7 +126,7 @@
 /* Default font */
 #define LV_FONT_DEFAULT &lv_font_montserrat_14
 
-#define LV_FONT_FMT_TXT_LARGE 0
+#define LV_FONT_FMT_TXT_LARGE 1
 #define LV_USE_FONT_SUBPX 0
 #define LV_USE_FONT_COMPRESSED 0
 #define LV_BUILT_IN_FONT_SUBPX_BGR 0

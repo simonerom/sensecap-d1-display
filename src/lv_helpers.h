@@ -48,6 +48,11 @@ LV_FONT_DECLARE(lv_font_montserrat_48_latin)
 
 LV_FONT_DECLARE(lv_font_montserrat_64_latin);
 LV_FONT_DECLARE(lv_font_montserrat_96_latin);
+LV_FONT_DECLARE(lv_font_montserrat_18_bold);
+LV_FONT_DECLARE(lv_font_montserrat_24_bold);
+LV_FONT_DECLARE(lv_font_montserrat_28_bold);
+LV_FONT_DECLARE(lv_font_montserrat_32_bold);
+LV_FONT_DECLARE(lv_font_montserrat_96_bold);
 
 inline const lv_font_t* lv_hlp_font(int size) {
     if (size <= 12) return &lv_font_montserrat_12_latin;
@@ -60,6 +65,19 @@ inline const lv_font_t* lv_hlp_font(int size) {
     if (size <= 48) return &lv_font_montserrat_48_latin;
     if (size <= 64) return &lv_font_montserrat_64_latin;
     return &lv_font_montserrat_96_latin;
+}
+
+inline const lv_font_t* lv_hlp_font_bold(int size) {
+    // Bold available at: 18, 24, 28, 32, 96 — others fall back to nearest
+    if (size <= 18) return &lv_font_montserrat_18_bold;
+    if (size <= 24) return &lv_font_montserrat_24_bold;
+    if (size <= 28) return &lv_font_montserrat_28_bold;
+    if (size <= 32) return &lv_font_montserrat_32_bold;
+    return &lv_font_montserrat_96_bold;
+}
+
+inline const lv_font_t* lv_hlp_font_ex(int size, bool bold) {
+    return bold ? lv_hlp_font_bold(size) : lv_hlp_font(size);
 }
 
 // =============================================================================
