@@ -54,7 +54,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.2.5"
+SPEC_VERSION = "1.2.6"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -442,7 +442,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.2.5">
+<screens version="1.2.6">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
@@ -478,7 +478,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       </col>
     </row>
     <!-- Bottom: scrollable full buongiorno -->
-    <card bg="#FFFFFF" radius="16" pad="14" w="100%" scroll="true" gap="6">
+    <card bg="#FFFFFF" radius="16" pad="14" w="100%" scroll="true" gap="16">
       <label text="★ Buongiorno" font="22" color="#1A1A2E" bold="true"/>
       <label text="{message}" font="18" color="#444444" max_lines="0"/>
       <label text="◆ Curiosita" font="22" color="#1A1A2E" bold="true"/>
