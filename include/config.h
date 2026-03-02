@@ -50,8 +50,8 @@
 // DISPLAY
 // =============================================================================
 #define SCREEN_WIDTH    480
-#define SCREEN_HEIGHT   320
-#define DISPLAY_ROTATION 1  // Landscape
+#define SCREEN_HEIGHT   480
+#define DISPLAY_ROTATION 0  // Portrait (ST7701 native)
 
 // Backlight brightness (0-255)
 #define BACKLIGHT_BRIGHTNESS 200

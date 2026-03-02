@@ -1,20 +1,46 @@
 #include "ui.h"
 #include "../include/config.h"
 
-#include <TFT_eSPI.h>
+#include <Wire.h>
+#include <PCA95x5.h>
+// Include only the needed Arduino_GFX components to avoid pulling in
+// Arduino_ESP32SPI.h which requires esp32-hal-periman.h (ESP32 Arduino 3.x)
+#include <Arduino_DataBus.h>
+#include <databus/Arduino_SWSPI.h>
+#include <databus/Arduino_ESP32RGBPanel.h>
+#include <Arduino_GFX.h>
+#include <display/Arduino_RGB_Display.h>
 #include <lvgl.h>
 
 // =============================================================================
-// TFT + touch driver globals
+// SenseCAP Indicator D1 Pro — Arduino_GFX RGB panel driver
+//
+// Display: ST7701S, 480x480, RGB interface
+// SPI init bus: MOSI=48, SCK=41, CS and RST via PCA9535 at I2C 0x20
+// I2C expander bus: SDA=39, SCL=40
+// RGB data bus: R[4:0]=0-4, G[5:0]=5-10, B[4:0]=11-15
+// RGB control: DE=18, VSYNC=17, HSYNC=16, PCLK=21
+// Backlight: GPIO 45
 // =============================================================================
-static TFT_eSPI tft = TFT_eSPI();
+
+// PCA9535 I2C expander (CS=P04, RST=P05)
+static PCA9535 pca;
+
+// Software SPI data bus for ST7701S init sequence
+// CS is toggled manually via PCA9535 before/after SWSPI transfer
+static Arduino_DataBus *bus = nullptr;
+
+// RGB panel
+static Arduino_ESP32RGBPanel *rgbpanel = nullptr;
+
+// Top-level GFX object
+static Arduino_RGB_Display *gfx = nullptr;
 
 static const uint32_t LV_BUF_SIZE = SCREEN_WIDTH * 20;
 static lv_color_t lv_buf1[LV_BUF_SIZE];
 static lv_color_t lv_buf2[LV_BUF_SIZE];
 static lv_disp_draw_buf_t lv_draw_buf;
 static lv_disp_drv_t lv_disp_drv;
-static lv_indev_drv_t lv_touch_drv;
 
 // =============================================================================
 // LVGL display flush callback
@@ -22,26 +48,8 @@ static lv_indev_drv_t lv_touch_drv;
 static void disp_flush_cb(lv_disp_drv_t* drv, const lv_area_t* area, lv_color_t* color_map) {
     uint32_t w = area->x2 - area->x1 + 1;
     uint32_t h = area->y2 - area->y1 + 1;
-    tft.startWrite();
-    tft.setAddrWindow(area->x1, area->y1, w, h);
-    tft.pushColors((uint16_t*)color_map, w * h, true);
-    tft.endWrite();
+    gfx->draw16bitRGBBitmap(area->x1, area->y1, (uint16_t*)color_map, w, h);
     lv_disp_flush_ready(drv);
-}
-
-// =============================================================================
-// LVGL touch input callback
-// =============================================================================
-static void touch_read_cb(lv_indev_drv_t* drv, lv_indev_data_t* data) {
-    uint16_t tx, ty;
-    bool pressed = tft.getTouch(&tx, &ty);
-    if (pressed) {
-        data->point.x = tx;
-        data->point.y = ty;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else {
-        data->state = LV_INDEV_STATE_RELEASED;
-    }
 }
 
 // =============================================================================
@@ -55,18 +63,71 @@ static void IRAM_ATTR lvgl_tick_isr(void* arg) {
 // Display initialization
 // =============================================================================
 void lvgl_display_init() {
-    tft.begin();
-    tft.setRotation(DISPLAY_ROTATION);
-    tft.fillScreen(TFT_BLACK);
+    // I2C bus for PCA9535 (SDA=39, SCL=40)
+    Wire.begin(39, 40, 400000UL);
 
-    pinMode(TFT_BL, OUTPUT);
+    // Initialize PCA9535 and configure CS (P04) and RST (P05) as outputs
+    pca.attach(Wire, 0x20);
+    pca.polarity(PCA95x5::Polarity::ORIGINAL_ALL);
+    pca.direction(PCA95x5::Port::P04, PCA95x5::Direction::OUT);
+    pca.direction(PCA95x5::Port::P05, PCA95x5::Direction::OUT);
+
+    // Hardware reset sequence via PCA9535 RST pin (P05)
+    pca.write(PCA95x5::Port::P05, PCA95x5::Level::L);
+    delay(10);
+    pca.write(PCA95x5::Port::P05, PCA95x5::Level::H);
+    delay(120);
+
+    // Assert CS low for ST7701S init SPI transfer
+    pca.write(PCA95x5::Port::P04, PCA95x5::Level::L);
+
+    // Software SPI bus: DC=N/A (ST7701 uses 3-wire SPI), SCK=41, MOSI=48
+    bus = new Arduino_SWSPI(
+        GFX_NOT_DEFINED /* DC */,
+        GFX_NOT_DEFINED /* CS — controlled via PCA9535 */,
+        41 /* SCK */,
+        48 /* MOSI */,
+        GFX_NOT_DEFINED /* MISO */);
+
+    // RGB panel with ST7701S timing
+    rgbpanel = new Arduino_ESP32RGBPanel(
+        18 /* DE */, 17 /* VSYNC */, 16 /* HSYNC */, 21 /* PCLK */,
+        4,  3,  2,  1,  0,       /* R4..R0 */
+        10, 9,  8,  7,  6,  5,   /* G5..G0 */
+        15, 14, 13, 12, 11,      /* B4..B0 */
+        1  /* hsync_polarity */,
+        10 /* hsync_front_porch */,
+        8  /* hsync_pulse_width */,
+        50 /* hsync_back_porch */,
+        1  /* vsync_polarity */,
+        10 /* vsync_front_porch */,
+        8  /* vsync_pulse_width */,
+        20 /* vsync_back_porch */);
+
+    // Compose RGB display using st7701_type1 init sequence (built-in to Arduino_GFX)
+    gfx = new Arduino_RGB_Display(
+        SCREEN_WIDTH, SCREEN_HEIGHT,
+        rgbpanel,
+        DISPLAY_ROTATION,
+        true /* auto_flush */,
+        bus,
+        GFX_NOT_DEFINED /* RST — done via PCA9535 above */,
+        st7701_type1_init_operations,
+        sizeof(st7701_type1_init_operations));
+
+    gfx->begin();
+    gfx->fillScreen(0x0000); // RGB565 black
+
+    // Deassert CS after init
+    pca.write(PCA95x5::Port::P04, PCA95x5::Level::H);
+
+    // Backlight on GPIO 45
+    pinMode(GFX_BL, OUTPUT);
     ledcSetup(0, 5000, 8);
-    ledcAttachPin(TFT_BL, 0);
+    ledcAttachPin(GFX_BL, 0);
     ledcWrite(0, BACKLIGHT_BRIGHTNESS);
 
-    uint16_t calData[5] = {275, 3620, 264, 3532, 1};
-    tft.setTouch(calData);
-
+    // LVGL init and display driver registration
     lv_init();
 
     lv_disp_draw_buf_init(&lv_draw_buf, lv_buf1, lv_buf2, LV_BUF_SIZE);
@@ -77,11 +138,6 @@ void lvgl_display_init() {
     lv_disp_drv.flush_cb = disp_flush_cb;
     lv_disp_drv.draw_buf = &lv_draw_buf;
     lv_disp_drv_register(&lv_disp_drv);
-
-    lv_indev_drv_init(&lv_touch_drv);
-    lv_touch_drv.type    = LV_INDEV_TYPE_POINTER;
-    lv_touch_drv.read_cb = touch_read_cb;
-    lv_indev_drv_register(&lv_touch_drv);
 }
 
 void lvgl_tick_timer_init() {

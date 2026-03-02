@@ -117,7 +117,6 @@ private:
     static void _onSpinboxDecrement(lv_event_t* e);
 };
 
-// LVGL display + touch driver setup
+// LVGL display driver setup (Arduino_GFX + PCA9535 RGB panel)
 void lvgl_display_init();
-void lvgl_touch_init();
 void lvgl_tick_timer_init();
