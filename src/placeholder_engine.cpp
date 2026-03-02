@@ -90,7 +90,7 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
 
     // {weekday}
     static const char* weekdays[] = {
-        "Domenica","Lunedi","Martedi","Mercoledi","Giovedi","Venerdi","Sabato"
+        "DOMENICA","LUNEDI","MARTEDI","MERCOLEDI","GIOVEDI","VENERDI","SABATO"
     };
     setValue("weekday", weekdays[t.tm_wday]);
 

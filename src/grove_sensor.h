@@ -3,7 +3,7 @@
 #include <Arduino.h>
 
 // Grove I2C temperature/humidity sensor driver
-// Supports SHT40 (0x44) with fallback to DHT20 (0x38)
+// Supports SHT40/SHT31 (0x44, 0x45, 0x48) with fallback to DHT20 (0x38)
 class GroveSensor {
 public:
     enum Type { NONE, SHT40, DHT20 };
@@ -21,7 +21,8 @@ public:
     bool isAvailable() const { return _type != NONE; }
 
 private:
-    Type _type;
+    Type    _type;
+    uint8_t _sht40Addr;
 
     bool _readSHT40(float& t, float& h);
     bool _readDHT20(float& t, float& h);

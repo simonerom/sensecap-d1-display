@@ -53,7 +53,12 @@ void ScreenManager::init(std::function<void(const AppSettings&)>      onSettings
 bool ScreenManager::buildFromXml(const char* xml, size_t len) {
     if (!xml) return false;
 
-    // Clear existing screens
+    // Load a blank screen first so the active screen is not one we're about to delete
+    lv_obj_t* blank = lv_obj_create(nullptr);
+    lv_hlp_set_bg(blank, lv_hlp_hex(0x000000));
+    lv_hlp_load_screen_instant(blank);
+
+    // Now safe to delete old screens
     for (int i = 0; i < 4; i++) {
         if (_screens[i]) {
             lv_obj_del(_screens[i]);

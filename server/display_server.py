@@ -53,7 +53,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.1.3"
+SPEC_VERSION = "1.2.0"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -401,6 +401,8 @@ def build_data():
         "message":   message,
         "curiosity": curiosity,
         "month_name": MONTHS_IT[now.month - 1],
+        "voc":       "--",
+        "co2":       "--",
         "alert":     "",
         "day_color":  "#E53935" if is_italian_holiday(now) else "#1A1A2E",
     }
@@ -408,37 +410,45 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.1.3">
+<screens version="1.2.0">
 
-  <screen id="home" bg="#F5F5F5">
-    <card bg="#FFFFFF" radius="16" pad_h="12" pad_v="2" gap="0" tight="true" w="100%">
-      <label text="{weekday}" font="16" color="#666666" align="center"/>
-      <label text="{day}" font="96" color="{day_color}" align="center" bold="true"/>
-      <label text="{month_name}" font="16" color="#888888" align="center"/>
-    </card>
-    <row gap="12" pad="12">
-      <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="▲ Interno" font="13" color="#666666" align="center"/>
-        <label text="{indoor_temp}" font="28" color="#00A885" align="center" bold="true"/>
-        <label text="{indoor_hum}" font="13" color="#888888" align="center"/>
+  <screen id="home" bg="#C8F0E8">
+    <row gap="10" pad="10" h="310">
+      <!-- Left col: Interno + Esterno -->
+      <col flex="1" gap="10">
+        <card bg="#FFFFFF" radius="16" pad="16" flex="1">
+          <label text="Interno" font="18" color="#1A1A2E" bold="true" align="center"/>
+          <label text="{indoor_temp}" font="32" color="#00A885" align="center" bold="true"/>
+          <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
+        </card>
+        <card bg="#FFFFFF" radius="16" pad="16" flex="1">
+          <label text="Esterno" font="18" color="#1A1A2E" bold="true" align="center"/>
+          <label text="{outdoor_temp}" font="32" color="#2B7DE9" align="center" bold="true"/>
+          <label text="{outdoor_hum}" font="16" color="#888888" align="center"/>
+        </card>
+      </col>
+      <!-- Center: tall date card -->
+      <card bg="#FFFFFF" radius="16" pad_h="8" pad_v="8" gap="0" tight="true" flex="2">
+        <label text="{weekday}" font="22" color="#444444" align="center"/>
+        <label text="{day}" font="96" color="{day_color}" align="center" bold="true"/>
+        <label text="{month_name}" font="22" color="#444444" align="center"/>
       </card>
-      <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="☁ Esterno" font="13" color="#666666" align="center"/>
-        <label text="{outdoor_temp}" font="28" color="#2B7DE9" align="center" bold="true"/>
-        <label text="{outdoor_hum}" font="13" color="#888888" align="center"/>
-      </card>
+      <!-- Right col: VOC + spare -->
+      <col flex="1" gap="10">
+        <card bg="#FFFFFF" radius="16" pad="16" flex="1">
+          <label text="VOC" font="18" color="#1A1A2E" bold="true" align="center"/>
+          <label text="{voc}" font="32" color="#00A885" align="center" bold="true"/>
+        </card>
+        <card bg="#FFFFFF" radius="16" pad="16" flex="1">
+          <label text="CO2" font="18" color="#1A1A2E" bold="true" align="center"/>
+          <label text="{co2}" font="32" color="#2B7DE9" align="center" bold="true"/>
+        </card>
+      </col>
     </row>
-    <card bg="#FFFFFF" radius="16" pad="16" w="100%" scroll="true">
-      <label text="★ Aggiornamenti" font="18" color="#1A1A2E" bold="true"/>
-      <label text="{message}" font="15" color="#444444" max_lines="0"/>
-      <label text="◆ Curiosita" font="18" color="#1A1A2E" bold="true"/>
-      <label text="{curiosity}" font="14" color="#555555"/>
-      <label text="$ Mercati" font="18" color="#1A1A2E" bold="true"/>
-      <crypto_row symbol="{btc_symbol}" price="{btc_price}" change="{btc_change}" trend="{btc_trend}" up_color="#00A885" down_color="#E53935"/>
-      <crypto_row symbol="{eth_symbol}" price="{eth_price}" change="{eth_change}" trend="{eth_trend}" up_color="#00A885" down_color="#E53935"/>
-      <crypto_row symbol="{iotx_symbol}" price="{iotx_price}" change="{iotx_change}" trend="{iotx_trend}" up_color="#00A885" down_color="#E53935"/>
-      <label text="★ Notizie" font="18" color="#1A1A2E" bold="true"/>
-      <list items="{news}" font="14" color="#333333" divider="#DDDDDD" max_lines="2"/>
+    <!-- Bottom: scrollable updates -->
+    <card bg="#FFFFFF" radius="16" pad="14" w="100%" scroll="true">
+      <label text="Aggiornamenti" font="18" color="#1A1A2E" bold="true"/>
+      <label text="{message}" font="14" color="#444444" max_lines="0"/>
     </card>
     <card bg="#E53935" radius="12" pad="12" w="100%" visible="{alert_visible}">
       <label text="⚠ {alert}" font="16" color="#FFFFFF" align="center"/>

@@ -92,6 +92,7 @@ void taskUI(void* pvParams) {
 void taskSensor(void* pvParams) {
     GroveSensor::Type sType = sensor.begin(GROVE_SDA_PIN, GROVE_SCL_PIN);
     bool available = (sType != GroveSensor::NONE);
+    DEBUG_PRINTF("[Sensor] type=%d available=%d\n", (int)sType, available);
     if (!available) screenMgr.postSensorUpdate(0, 0, false);
 
     static uint32_t lastMs = 0;

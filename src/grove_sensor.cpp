@@ -1,23 +1,28 @@
 #include "grove_sensor.h"
 #include "../include/config.h"
 
-// Grove sensor uses Wire1 (I2C bus 1, SDA=2/SCL=3) to avoid conflict with
-// the display I2C bus (Wire on SDA=39/SCL=40 for PCA9535 and FT5x06).
-#define GROVE_WIRE Wire1
+// Grove sensor shares the main I2C bus (Wire, SDA=39/SCL=40) with PCA9535 and FT5x06.
+// GPIO 2/3 are RGB display data lines and cannot be used for I2C.
 #include <Wire.h>
+#define GROVE_WIRE Wire
 
-GroveSensor::GroveSensor() : _type(NONE) {}
+GroveSensor::GroveSensor() : _type(NONE), _sht40Addr(SHT40_ADDR) {}
 
 GroveSensor::Type GroveSensor::begin(uint8_t sda, uint8_t scl) {
-    GROVE_WIRE.begin(sda, scl);
-    GROVE_WIRE.setClock(100000);
+    // Wire is already initialized on SDA=39/SCL=40 by lvgl_display_init().
+    // Grove connector shares this bus — no re-init needed.
+    DEBUG_PRINTF("[Sensor] Probing Grove sensor on shared I2C bus (SDA=%d SCL=%d)\n", sda, scl);
 
-    // Try SHT40 first (0x44)
-    GROVE_WIRE.beginTransmission(SHT40_ADDR);
-    if (GROVE_WIRE.endTransmission() == 0) {
-        _type = SHT40;
-        DEBUG_PRINTLN("[Sensor] SHT40 detected at 0x44");
-        return _type;
+    // Try SHT40/SHT31 at 0x44, 0x45, 0x48
+    uint8_t shtAddrs[] = { SHT40_ADDR, SHT40_ADDR_ALT1, SHT40_ADDR_ALT2 };
+    for (uint8_t addr : shtAddrs) {
+        GROVE_WIRE.beginTransmission(addr);
+        if (GROVE_WIRE.endTransmission() == 0) {
+            _type = SHT40;
+            _sht40Addr = addr;
+            DEBUG_PRINTF("[Sensor] SHT40/SHT31 detected at 0x%02X\n", addr);
+            return _type;
+        }
     }
 
     // Try DHT20 (0x38)
@@ -25,7 +30,6 @@ GroveSensor::Type GroveSensor::begin(uint8_t sda, uint8_t scl) {
     if (GROVE_WIRE.endTransmission() == 0) {
         _type = DHT20;
         DEBUG_PRINTLN("[Sensor] DHT20 detected at 0x38");
-        // DHT20 initialization: send 0x71 status check
         GROVE_WIRE.beginTransmission(DHT20_ADDR);
         GROVE_WIRE.write(0x71);
         GROVE_WIRE.endTransmission();
@@ -44,16 +48,16 @@ bool GroveSensor::read(float& temperature, float& humidity) {
     return false;
 }
 
-// ---- SHT40 ----
+// ---- SHT40/SHT31 ----
 // Measure high precision: command 0xFD, read 6 bytes after 10ms
 bool GroveSensor::_readSHT40(float& t, float& h) {
-    GROVE_WIRE.beginTransmission(SHT40_ADDR);
+    GROVE_WIRE.beginTransmission(_sht40Addr);
     GROVE_WIRE.write(0xFD);  // measure high precision
     if (GROVE_WIRE.endTransmission() != 0) return false;
 
     delay(10);
 
-    if (GROVE_WIRE.requestFrom((uint8_t)SHT40_ADDR, (uint8_t)6) != 6) return false;
+    if (GROVE_WIRE.requestFrom((uint8_t)_sht40Addr, (uint8_t)6) != 6) return false;
 
     uint8_t buf[6];
     for (int i = 0; i < 6; i++) buf[i] = GROVE_WIRE.read();

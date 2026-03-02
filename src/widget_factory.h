@@ -48,6 +48,7 @@ private:
     lv_obj_t* _buildCard(lv_obj_t* parent, const AttrMap& attrs);
     lv_obj_t* _buildLabel(lv_obj_t* parent, const AttrMap& attrs);
     lv_obj_t* _buildRow(lv_obj_t* parent, const AttrMap& attrs);
+    lv_obj_t* _buildCol(lv_obj_t* parent, const AttrMap& attrs);
     lv_obj_t* _buildList(lv_obj_t* parent, const AttrMap& attrs);
     lv_obj_t* _buildCryptoRow(lv_obj_t* parent, const AttrMap& attrs);
     lv_obj_t* _buildCalendarGrid(lv_obj_t* parent, const AttrMap& attrs);

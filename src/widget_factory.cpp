@@ -111,6 +111,7 @@ lv_obj_t* WidgetFactory::buildElement(lv_obj_t* parent,
     if (strcmp(element, "card")          == 0) return _buildCard(parent, attrs);
     if (strcmp(element, "label")         == 0) return _buildLabel(parent, attrs);
     if (strcmp(element, "row")           == 0) return _buildRow(parent, attrs);
+    if (strcmp(element, "col")           == 0) return _buildCol(parent, attrs);
     if (strcmp(element, "list")          == 0) return _buildList(parent, attrs);
     if (strcmp(element, "crypto_row")    == 0) return _buildCryptoRow(parent, attrs);
     if (strcmp(element, "calendar_grid") == 0) return _buildCalendarGrid(parent, attrs);
@@ -222,7 +223,12 @@ lv_obj_t* WidgetFactory::_buildRow(lv_obj_t* parent, const AttrMap& attrs) {
     lv_obj_t* row = lv_hlp_obj(parent);
     lv_hlp_flex_row(row, (lv_coord_t)gap);
     lv_obj_set_width(row, LV_PCT(100));
-    lv_obj_set_height(row, LV_SIZE_CONTENT);
+    String rowH = _attr(attrs, "h", "auto");
+    lv_coord_t rowHVal = _parseDim(rowH.c_str(), false);
+    if (rowHVal != LV_SIZE_CONTENT) lv_obj_set_height(row, rowHVal);
+    else lv_obj_set_height(row, LV_SIZE_CONTENT);
+    // stretch children vertically by default
+    lv_obj_set_style_flex_cross_place(row, LV_FLEX_ALIGN_START, 0);
     if (pad > 0) lv_hlp_set_pad_all(row, (lv_coord_t)pad);
 
     // Align children vertically
@@ -233,6 +239,29 @@ lv_obj_t* WidgetFactory::_buildRow(lv_obj_t* parent, const AttrMap& attrs) {
     lv_obj_set_style_flex_cross_place(row, cross, 0);
 
     return row;
+}
+
+
+// =============================================================================
+// _buildCol — transparent vertical flex container
+// =============================================================================
+lv_obj_t* WidgetFactory::_buildCol(lv_obj_t* parent, const AttrMap& attrs) {
+    int gap = _attrInt(attrs, "gap", 8);
+    int pad = _attrInt(attrs, "pad", 0);
+
+    lv_obj_t* col = lv_hlp_obj(parent);
+    lv_obj_set_style_bg_opa(col, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(col, 0, 0);
+    lv_hlp_flex_col(col, (lv_coord_t)gap);
+    lv_obj_set_width(col, LV_SIZE_CONTENT);
+    lv_obj_set_height(col, LV_PCT(100));
+    if (pad > 0) lv_hlp_set_pad_all(col, (lv_coord_t)pad);
+
+    // flex grow within parent row
+    uint8_t grow;
+    if (_hasFlex(attrs, grow)) lv_hlp_flex_grow(col, grow);
+
+    return col;
 }
 
 // =============================================================================
@@ -304,7 +333,12 @@ lv_obj_t* WidgetFactory::_buildCryptoRow(lv_obj_t* parent, const AttrMap& attrs)
     lv_obj_t* row = lv_hlp_obj(parent);
     lv_hlp_flex_row(row, 8);
     lv_obj_set_width(row, LV_PCT(100));
-    lv_obj_set_height(row, LV_SIZE_CONTENT);
+    String rowH = _attr(attrs, "h", "auto");
+    lv_coord_t rowHVal = _parseDim(rowH.c_str(), false);
+    if (rowHVal != LV_SIZE_CONTENT) lv_obj_set_height(row, rowHVal);
+    else lv_obj_set_height(row, LV_SIZE_CONTENT);
+    // stretch children vertically by default
+    lv_obj_set_style_flex_cross_place(row, LV_FLEX_ALIGN_START, 0);
     lv_obj_set_style_pad_top(row, 4, 0);
     lv_obj_set_style_pad_bottom(row, 4, 0);
 
