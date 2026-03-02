@@ -11,6 +11,7 @@ import subprocess
 import threading
 import urllib.request
 from datetime import datetime, timedelta, date
+import calendar as _cal_mod
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import caldav
@@ -482,7 +483,7 @@ def build_meteo_summary(now, weather, events):
     if roberta:
         parts.append(f"\n{roberta}")
     today_date = now.strftime("%-d %b").lower()
-    today_events = [e for e in events if e["date"] == today_date]
+    today_events = [e for e in events if isinstance(e, str) and today_date.lower() in e.lower()]
     if today_events:
         parts.append("\n◉ Oggi:")
         for e in today_events:
@@ -567,6 +568,11 @@ def build_data():
         "meteo_summary": strip_emoji(meteo_summary),
         "curiosity": strip_emoji(curiosity),
         "month_name": MONTHS_IT[now.month - 1],
+        "cal_year":     str(now.year),
+        "cal_month":    str(now.month),
+        "cal_today":    str(now.day),
+        "cal_startdow": str(_cal_mod.monthrange(now.year, now.month)[0]),
+        "cal_days":     str(_cal_mod.monthrange(now.year, now.month)[1]),
         "voc":       "--",
         "co2":       "--",
         "alert":     "",
