@@ -78,8 +78,8 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
 
     // {date} "3 Mar"
     static const char* months[] = {
-        "Jan","Feb","Mar","Apr","May","Jun",
-        "Jul","Aug","Sep","Oct","Nov","Dec"
+        "gen","feb","mar","apr","mag","giu",
+        "lug","ago","set","ott","nov","dic"
     };
     snprintf(buf, sizeof(buf), "%d %s", t.tm_mday, months[t.tm_mon]);
     setValue("date", buf);
@@ -90,7 +90,7 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
 
     // {weekday}
     static const char* weekdays[] = {
-        "Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"
+        "Domenica","Lunedi","Martedi","Mercoledi","Giovedi","Venerdi","Sabato"
     };
     setValue("weekday", weekdays[t.tm_wday]);
 
