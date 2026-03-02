@@ -652,7 +652,7 @@ lv_obj_t* WidgetFactory::_buildEventsList(lv_obj_t* parent, const AttrMap& attrs
                         lv_label_set_text(dtLbl, (String(LV_SYMBOL_DUMMY) + dateStr).c_str());
                         // Use plain text with clock symbol
                         char dtBuf[128];
-                        snprintf(dtBuf, sizeof(dtBuf), "⏰ %s", dateStr.c_str());
+                        snprintf(dtBuf, sizeof(dtBuf), "⊙ %s", dateStr.c_str());
                         lv_label_set_text(dtLbl, dtBuf);
                         lv_hlp_set_font(dtLbl, lv_hlp_font(cfg->fontSize - 2));
                         lv_hlp_set_text_color(dtLbl, cfg->dtCol);
@@ -682,7 +682,7 @@ lv_obj_t* WidgetFactory::_buildBigClock(lv_obj_t* parent, const AttrMap& attrs) 
     String format  = _attr(attrs, "format", "HH:MM");
 
     // Decide which placeholder to use based on format
-    const char* placeholder = (format == "HH:MM:SS") ? "{time_seconds}" : "{time}";
+    const char* placeholder = (format == "HH:MM:SS") ? "{time_sec}" : "{time}";
 
     lv_obj_t* lbl = lv_label_create(parent);
     lv_hlp_set_font(lbl, lv_hlp_font(fontSize));
