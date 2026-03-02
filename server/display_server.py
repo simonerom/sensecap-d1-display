@@ -53,7 +53,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.0.3"
+SPEC_VERSION = "1.0.4"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -64,7 +64,7 @@ MONTHS_IT = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno",
 
 def is_italian_holiday(dt):
     """Return True if dt is a weekend or Italian public holiday."""
-    if dt.weekday() >= 5:  # Sat=5, Sun=6
+    if dt.weekday() == 6:  # Sun only
         return True
     d, m = dt.day, dt.month
     # Fixed holidays
@@ -407,7 +407,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.0.3">
+<screens version="1.0.4">
 
   <screen id="home" bg="#F5F5F5">
     <card bg="#FFFFFF" radius="16" pad="20" w="100%">
