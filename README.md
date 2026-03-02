@@ -1,22 +1,28 @@
-# SenseCAP Indicator D1 - Display Firmware
+# SenseCAP Indicator D1 Pro — Dashboard Firmware
 
-PlatformIO firmware for the **Seeed SenseCAP Indicator D1** (ESP32-S3 + 4-inch touchscreen display).
+PlatformIO firmware for the **Seeed SenseCAP Indicator D1 Pro** (ESP32-S3 + 4" RGB touchscreen).
 
-The device connects to WiFi, polls a local HTTP endpoint every 60 seconds, and displays the data on an LVGL interface with 3 swipeable pages.
+The device connects to WiFi, polls a local display server, and renders a fully customizable XML-driven dashboard with swipeable pages.
 
 ---
 
-## Features
+## Architecture Overview
 
-- **Automatic WiFi connection** with reconnection on signal loss
-- **HTTP polling** every 60 seconds from a configurable local endpoint
-- **LVGL UI** with 3 horizontally swipeable pages:
-  - Page 1: Date and message
-  - Page 2: Weather conditions
-  - Page 3: Alerts/notifications
-- **Dark theme** with large fonts and navigation indicators (dots)
-- **Multi-task FreeRTOS architecture** (UI on core 1, network on core 0)
-- **Automatic refresh** every 60 seconds
+```
+┌─────────────────────────────────────────────────────┐
+│  Mac (display server)         SenseCAP Indicator    │
+│                                                     │
+│  display_server.py  ──HTTP──▶  firmware (ESP32-S3) │
+│   /layout.xml                   XML parser          │
+│   /data.json                    widget factory      │
+│   /health                       placeholder engine  │
+│                                 LVGL renderer       │
+└─────────────────────────────────────────────────────┘
+```
+
+- **Layout** (`/layout.xml`) — defines the UI structure; cached by firmware until `X-Layout-Version` header changes
+- **Data** (`/data.json`) — dynamic values (weather, news, crypto…); refreshed on swipe-down
+- **Pull-to-refresh** — swipe down on any page to reload data; if layout version changed, full UI reload
 
 ---
 
@@ -24,214 +30,184 @@ The device connects to WiFi, polls a local HTTP endpoint every 60 seconds, and d
 
 ```
 sensecap-d1-display/
-├── platformio.ini          # PlatformIO configuration
+├── platformio.ini
 ├── include/
-│   ├── config.h            # WiFi, endpoint, and color configuration
-│   └── lv_conf.h           # LVGL configuration
+│   ├── config.h                # WiFi, server host/port, timeouts
+│   └── lv_conf.h               # LVGL configuration
 ├── src/
-│   ├── main.cpp            # Entry point and FreeRTOS tasks
-│   ├── wifi_manager.h/.cpp # WiFi connection management
-│   ├── data_fetcher.h/.cpp # HTTP/JSON data fetching and parsing
-│   └── ui.h/.cpp           # LVGL UI (3 pages + overlay)
+│   ├── main.cpp                # Entry point, FreeRTOS tasks
+│   ├── xml_parser.cpp          # XML layout parser
+│   ├── widget_factory.cpp      # LVGL widget builder from XML
+│   ├── placeholder_engine.cpp  # {placeholder} substitution + live updates
+│   ├── data_fetcher.cpp        # HTTP fetch + JSON parse
+│   ├── screen_manager.cpp      # Swipeable pages
+│   ├── ui.cpp                  # Top-level UI init
+│   ├── grove_sensor.cpp        # SGP40 (tVOC) + SCD41 (CO2) via I2C
+│   ├── settings_manager.cpp
+│   └── fonts/                  # Merged Montserrat + NotoSansSymbols2
 ├── scripts/
-│   └── setup_lvgl.py       # Pre-build script to configure LVGL
-└── README.md
+│   └── setup_lvgl.py           # Pre-build: patches LVGL include path
+└── server/
+    ├── display_server.py       # Python HTTP server (port 8765)
+    └── server.log
 ```
 
 ---
 
-## Configuration
+## Hardware
 
-Edit `include/config.h` before building:
+| Component         | Specs                                                        |
+|-------------------|--------------------------------------------------------------|
+| Main MCU          | ESP32-S3 (240 MHz, WiFi + BT, 8MB flash, 8MB PSRAM OPI)    |
+| Secondary MCU     | RP2040                                                       |
+| Display           | 4" ST7701S RGB 480×480                                       |
+| Touch             | FT5X06 capacitive                                            |
+| I2C expander      | PCA9535 at 0x20 (SDA=39, SCL=40)                            |
+| Sensors           | SGP40 (tVOC), SCD41 (CO2)                                   |
 
-```c
-// WiFi
-#define WIFI_SSID       "YourWiFiNetwork"
-#define WIFI_PASSWORD   "YourPassword"
+### USB Ports
 
-// Local HTTP endpoint
-#define DATA_ENDPOINT_HOST  "192.168.1.100"
-#define DATA_ENDPOINT_PORT  8080
-#define DATA_ENDPOINT_PATH  "/api/display"
-
-// Polling interval (milliseconds)
-#define POLL_INTERVAL_MS    60000
-```
-
----
-
-## API Response Format
-
-The endpoint must return a JSON object with this schema:
-
-```json
-{
-  "date":    "Sunday, March 1, 2026 - 10:30",
-  "message": "Good morning! You have 3 new messages.",
-  "weather": "Sunny, 18°C - Wind 10 km/h",
-  "alert":   "Meeting at 3:00 PM in the conference room"
-}
-```
-
-| Field     | Type   | Description                                           |
-|-----------|--------|-------------------------------------------------------|
-| `date`    | string | Date and time shown on page 1                         |
-| `message` | string | Main message shown on page 1                          |
-| `weather` | string | Weather conditions shown on page 2                    |
-| `alert`   | string | Alert text shown on page 3 (`""` = no active alert)   |
-
----
-
-## Dependencies
-
-| Library                   | Version  | Description              |
-|---------------------------|----------|--------------------------|
-| `lvgl/lvgl`               | ^8.3.11  | GUI library              |
-| `bodmer/TFT_eSPI`         | ^2.5.43  | SPI display driver       |
-| `bblanchon/ArduinoJson`   | ^7.0.4   | JSON parsing             |
+| Port                        | Purpose              |
+|-----------------------------|----------------------|
+| `/dev/cu.wchusbserial2110`  | ESP32-S3 (flash/log) |
+| `/dev/cu.usbmodem21201`     | RP2040               |
 
 ---
 
 ## Build & Flash
 
-### Prerequisites
-
-- [PlatformIO](https://platformio.org/) (VS Code extension or CLI)
-- Python 3.x (for the pre-build script)
-
-### Compilation
+### Flash firmware (C++ changes only)
 
 ```bash
-# From the command line
-pio run
-
-# Flash to device
-pio run --target upload
-
-# Serial monitor
-pio device monitor
+cd ~/Source/GitHub/simonerom/sensecap-d1-display
+python3 -m platformio run -e sensecap_indicator --target upload --upload-port /dev/cu.wchusbserial2110
 ```
 
-### First Build
+### Serial monitor
 
-1. Clone the repository
-2. Edit `include/config.h` with your WiFi credentials and endpoint
-3. Connect the SenseCAP Indicator D1 via USB
-4. Run `pio run --target upload`
+```bash
+python3 -m platformio device monitor --port /dev/cu.usbmodem21201 --baud 115200
+```
+
+### When to flash vs swipe down
+
+| Changed file                  | Action needed                                |
+|-------------------------------|----------------------------------------------|
+| `src/*.cpp` / `include/*.h`   | **Flash**                                    |
+| `server/display_server.py`    | Restart server + swipe down                  |
+| Layout XML (inside server)    | Bump `SPEC_VERSION` + restart server + swipe down |
+
+> **Never flash for server or layout changes** — swipe down is enough.
 
 ---
 
-## Hardware: SenseCAP Indicator D1
+## Display Server
 
-| Component        | Specs                              |
-|------------------|------------------------------------|
-| Main MCU         | ESP32-S3 (240 MHz, WiFi + BT)     |
-| Secondary MCU    | RP2040 (not used in this firmware) |
-| Display          | 4" IPS touchscreen 480x320        |
-| Display driver   | ILI9341 (SPI)                     |
-| Touch            | Resistive (calibration included)  |
-| Flash            | 8 MB                              |
-| PSRAM            | 8 MB (OSPI)                       |
+The server runs on the Mac and serves layout + data to the device.
+
+### Start / Stop
+
+```bash
+# Restart after editing display_server.py
+launchctl unload ~/Library/LaunchAgents/com.simonerom.sensecap-server.plist
+launchctl load ~/Library/LaunchAgents/com.simonerom.sensecap-server.plist
+```
+
+### Endpoints
+
+| Endpoint          | Description                         |
+|-------------------|-------------------------------------|
+| `GET /layout.xml` | XML UI layout (cached by device)    |
+| `GET /data.json`  | Dynamic data (refreshed on swipe)   |
+| `GET /health`     | `{"status":"ok","version":"..."}`   |
+
+Server: `http://192.168.1.29:8765/`
+
+### Applying layout changes
+
+1. Edit the XML layout inside `display_server.py`
+2. Bump `SPEC_VERSION` (e.g. `"1.3.6"` → `"1.3.7"`) **and** the `<screens version="...">` attribute
+3. Restart the server
+4. Swipe down on the device
 
 ---
 
-## Display Pins (ESP32-S3)
+## XML Layout
 
-| Function  | GPIO |
-|-----------|------|
-| MOSI      | 11   |
-| SCLK      | 12   |
-| CS        | 10   |
-| DC        | 14   |
-| RST       | 9    |
-| Backlight | 45   |
-| Touch CS  | 8    |
+Pages are defined in `display_server.py` inside the `LAYOUT_XML` string.
 
----
+### Elements
 
-## Firmware Architecture
+| Element        | Description                                                                                   |
+|----------------|-----------------------------------------------------------------------------------------------|
+| `<screens>`    | Root container, `version` attribute                                                           |
+| `<screen>`     | One swipeable page, `bg` color                                                                |
+| `<card>`       | Rounded container: `bg`, `radius`, `pad`, `pad_h`, `pad_v`, `gap`, `tight`, `flex`, `h`, `scroll`, `valign` |
+| `<row>`        | Horizontal flex container: `gap`, `h`                                                         |
+| `<col>`        | Vertical flex container: `gap`, `flex`                                                        |
+| `<label>`      | Text label: `text`, `font`, `bold`, `color`, `align`, `max_lines`, `flex`, `w`, `visible`    |
+| `<list>`       | Bulleted list from array placeholder: `items`, `font`, `color`, `divider`, `max_lines`       |
+| `<crypto_row>` | Coin row: `symbol`, `price`, `change`, `trend`, `up_color`, `down_color`                     |
 
-```
-setup()
- ├── lvgl_display_init()    # Init TFT_eSPI + LVGL driver
- ├── lvgl_tick_timer_init() # 5ms ISR timer for LVGL
- ├── ui.init()              # Create the 3 LVGL pages
- ├── taskUI (Core 1)        # LVGL loop every 5ms
- └── taskNetwork (Core 0)   # WiFi + fetch every 60s
-```
+### Placeholders
 
-### Data Flow
-
-```
-taskNetwork:
-  wifiMgr.ensureConnected()
-    └─> WiFi.begin() / reconnect
-  fetcher.fetch(data)
-    └─> HTTP GET -> JSON parse -> DisplayData
-  ui.updateData(data)
-    └─> update LVGL labels
-
-taskUI:
-  ui.tick()
-    └─> lv_timer_handler()  # Redraw if needed
-```
+Any `{key}` in a `text` attribute is replaced live from `data.json`.  
+Arrays (`{news_italia}`, `{scioperi}`, etc.) are used with `<list items="{key}"/>`.
 
 ---
 
-## UI Customization
+## data.json Reference
 
-Colors are defined in `include/config.h`:
-
-```c
-#define COLOR_BG        0x1A1A2E  // Main background
-#define COLOR_PAGE1     0x16213E  // Page 1 background
-#define COLOR_ACCENT    0x00D4AA  // Accent color (teal)
-#define COLOR_ALERT     0xFF6B6B  // Alert color (red)
-#define COLOR_WEATHER   0x74B9FF  // Weather color (blue)
-```
-
----
-
-## Example Server (Python)
-
-A simple Flask server for testing the firmware:
-
-```python
-from flask import Flask, jsonify
-from datetime import datetime
-
-app = Flask(__name__)
-
-@app.route('/api/display')
-def display_data():
-    return jsonify({
-        "date":    datetime.now().strftime("%A %d %B %Y - %H:%M"),
-        "message": "System running. Everything is normal.",
-        "weather": "Sunny, 18°C - Humidity 65%",
-        "alert":   ""  # Empty string = no active alert
-    })
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
-```
-
-Start with: `python server.py`
+| Field                | Type   | Description                                      |
+|----------------------|--------|--------------------------------------------------|
+| `indoor_temp`        | string | Indoor temperature (SHT40)                       |
+| `indoor_hum`         | string | Indoor humidity                                  |
+| `outdoor_temp`       | string | Outdoor temperature (Open-Meteo)                 |
+| `voc`                | string | tVOC index (SGP40) or `--`                       |
+| `co2`                | string | CO2 ppm (SCD41) or `--`                          |
+| `day_name`           | string | Weekday in Italian uppercase (e.g. `LUNEDI`)     |
+| `day_num`            | string | Day of month                                     |
+| `month_name`         | string | Full Italian month name (e.g. `Marzo`)           |
+| `day_color`          | string | `#E53935` on Sunday/holidays, dark otherwise     |
+| `meteo_summary`      | string | Multi-line weather + forecast + rain info        |
+| `scioperi`           | array  | Upcoming ATM/transit strikes                     |
+| `scioperi_text`      | string | Same, newline-joined (for single label)          |
+| `scioperi_visible`   | string | `"true"` / `"false"`                             |
+| `news_italia`        | array  | Italian news (ANSA)                              |
+| `news_estero`        | array  | International news (Google News IT)              |
+| `news_milano`        | array  | Milan local news                                 |
+| `btc_price/change/trend` | string | Bitcoin                                    |
+| `eth_price/change/trend` | string | Ethereum                                   |
+| `iotx_price/change/trend`| string | IoTeX                                      |
+| `curiosity`          | string | Daily curiosity fact                             |
 
 ---
 
-## Touch Calibration
+## Fonts
 
-The resistive touch calibration values are in `src/ui.cpp`:
+Merged Montserrat + NotoSansSymbols2, compiled in `src/fonts/`.
 
-```cpp
-uint16_t calData[5] = {275, 3620, 264, 3532, 1};
-tft.setTouchCalibrate(calData);
-```
+| Function                     | Description                                      |
+|------------------------------|--------------------------------------------------|
+| `lv_hlp_font(size)`          | Regular (sizes: 12,14,18,22,24,28,32,48,64,96)  |
+| `lv_hlp_font_bold(size)`     | Bold (sizes: 18,24,28,32,96,192)                 |
+| `lv_hlp_font_ex(size, bold)` | Auto-selects variant                             |
 
-To recalibrate, run the TFT_eSPI calibration sketch and replace the values.
+Font 192 bold contains digits only (used for large day-of-month number).  
+Supported symbols: `★ ▲ ▶ ◆ ◉ ☀ ☁ ⚠ ⚡ ° •`
+
+---
+
+## Dependencies
+
+| Library                 | Version   |
+|-------------------------|-----------|
+| `lvgl/lvgl`             | ^8.3.11   |
+| `bblanchon/ArduinoJson` | ^7.0.4    |
+| `Arduino_GFX`           | (RGB display driver) |
 
 ---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT
