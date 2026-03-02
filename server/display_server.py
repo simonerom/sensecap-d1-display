@@ -45,6 +45,8 @@ def strip_emoji(text):
         # Keep: ASCII printable, accented latin (U+00C0–U+024F), common punctuation
         if (0x20 <= cp <= 0x7E) or (0x00C0 <= cp <= 0x024F) or (0x2018 <= cp <= 0x201F) or cp == 0xB0:
             result.append(ch)
+        elif ch == "\n":  # preserve newlines
+            result.append("\n")
         elif cat in ("Zs",):  # spaces
             result.append(" ")
         # else: drop (emoji, symbols, CJK, etc.)
@@ -430,8 +432,8 @@ def build_data():
 
         "news":      news,
         "events":    events,
-        "message":   message,
-        "curiosity": curiosity,
+        "message":   strip_emoji(message),
+        "curiosity": strip_emoji(curiosity),
         "month_name": MONTHS_IT[now.month - 1],
         "voc":       "--",
         "co2":       "--",
