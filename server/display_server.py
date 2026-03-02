@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.11"
+SPEC_VERSION = "1.3.12"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -526,7 +526,7 @@ def build_data():
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <screens version="1.4.1">
 
-  <screen id="home" bg="#C8F0E8">
+  <screen id="home" bg="#000000">
     <row gap="10" pad="10" h="310">
       <!-- Left col: Interno + Esterno -->
       <col flex="1" gap="10">
