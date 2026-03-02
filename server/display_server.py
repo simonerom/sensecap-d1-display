@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.2.7"
+SPEC_VERSION = "1.3.0"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -274,28 +274,28 @@ def _parse_rss_titles(raw, skip=1, limit=4):
     titles = [t for t in titles if len(t) > 10]
     return titles[skip:skip + limit]
 
+def _fetch_rss(url, skip=1, limit=4):
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=7) as r:
+            raw = r.read().decode("utf-8", errors="replace")
+        return _parse_rss_titles(raw, skip=skip, limit=limit)
+    except:
+        return []
+
 def get_news():
-    news = []
-    feeds = [
-        ("https://news.google.com/rss/search?q=mondo&hl=it&gl=IT&ceid=IT:it", 2, 3),
-        ("https://www.ansa.it/sito/ansait_rss.xml", 1, 3),
-        ("https://www.repubblica.it/rss/homepage/rss2.0.xml", 1, 2),
-    ]
-    for url, skip, limit in feeds:
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=7) as r:
-                raw = r.read().decode("utf-8", errors="replace")
-            news += _parse_rss_titles(raw, skip=skip, limit=limit)
-        except:
-            pass
-    seen = set()
-    result = []
-    for t in news:
-        if t not in seen:
-            seen.add(t)
-            result.append(t)
-    return result[:8]
+    italia  = _fetch_rss("https://www.ansa.it/sito/ansait_rss.xml", skip=1, limit=4)
+    estero  = _fetch_rss("https://news.google.com/rss/search?q=mondo&hl=it&gl=IT&ceid=IT:it", skip=2, limit=4)
+    milano  = _fetch_rss("https://news.google.com/rss/search?q=Milano&hl=it&gl=IT&ceid=IT:it", skip=2, limit=3)
+    scioperi= _fetch_rss("https://news.google.com/rss/search?q=sciopero+ATM+Milano+metro&hl=it&gl=IT&ceid=IT:it", skip=2, limit=2)
+    # filter scioperi to only relevant ones
+    scioperi = [t for t in scioperi if any(w in t.lower() for w in ["sciopero","metro","atm","tram","bus","trasport"])]
+    return {
+        "italia":  [strip_emoji(t) for t in italia[:3]],
+        "estero":  [strip_emoji(t) for t in estero[:3]],
+        "milano":  [strip_emoji(t) for t in milano[:2]],
+        "scioperi":[strip_emoji(t) for t in scioperi[:2]],
+    }
 
 def get_events():
     try:
@@ -356,48 +356,20 @@ def build_roberta_note(now, rain_morning, rain_evening):
         notes.append(f"Ritorno {end_time}: * Ok ({rain_evening}%)")
     return "\n".join(notes)
 
-def get_scioperi():
-    try:
-        with urllib.request.urlopen(
-            "https://news.google.com/rss/search?q=sciopero+ATM+Milano&hl=it&gl=IT&ceid=IT:it",
-            timeout=6) as r:
-            content = r.read().decode()
-        titles = re.findall(r'<title>(.*?)</title>', content)[1:3]
-        titles = [re.sub(r'<!\[CDATA\[|\]\]>', '', t).strip() for t in titles]
-        # Only return if clearly about upcoming strike
-        relevant = [t for t in titles if any(w in t.lower() for w in ["sciopero","strike","atm","metro"])]
-        return relevant[:2]
-    except:
-        return []
 
-def build_message(now, weather, events, scioperi):
-    hour = now.hour
-    if hour < 12:   greeting = "Buongiorno"
-    elif hour < 18: greeting = "Buon pomeriggio"
-    else:           greeting = "Buonasera"
 
-    parts = [f"{greeting}, Simone!"]
-
-    # Weather summary
-    parts.append(f"Fuori: {weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}")
-
-    # Roberta commute note
+def build_meteo_summary(now, weather, events):
+    parts = []
+    parts.append(f"{weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}")
     roberta = build_roberta_note(now, weather["rain_morning"], weather["rain_evening"])
     if roberta:
-        parts.append(f"\n>> Roberta, se oggi vai in ufficio:\n{roberta}")
-
-    # Scioperi
-    if scioperi:
-        parts.append(f"\n>> Trasporti: {'; '.join(scioperi)}")
-
-    # Today's events
+        parts.append(f"\n▶ Roberta, se oggi vai in ufficio:\n{roberta}")
     today_str = now.strftime("%-d %b").lower()
     today_events = [e for e in events if e["date"] == today_str]
     if today_events:
-        parts.append(f"\n[ Oggi ]")
+        parts.append("\n◉ Oggi:")
         for e in today_events:
-            parts.append(f"  {e['time']} — {e['title']}")
-
+            parts.append(f"  {e['time']} - {e['title']}")
     return "\n".join(parts)
 
 # ─── Data builder ─────────────────────────────────────────────────────────────
@@ -406,10 +378,9 @@ def build_data():
     now     = datetime.now(TZ)
     weather = get_weather()
     crypto  = get_crypto()
-    news    = get_news()
-    events  = get_events()
-    scioperi = get_scioperi()
-    message = build_message(now, weather, events, scioperi)
+    news     = get_news()
+    events   = get_events()
+    meteo_summary = build_meteo_summary(now, weather, events)
     curiosity = get_curiosity(now)
 
     return {
@@ -436,9 +407,13 @@ def build_data():
         "iotx_change": crypto["iotx"]["change"],
         "iotx_trend":  crypto["iotx"]["trend"],
 
-        "news":      news,
+        "news_italia":  news["italia"],
+        "news_estero":  news["estero"],
+        "news_milano":  news["milano"],
+        "scioperi":     news["scioperi"],
+        "scioperi_visible": "true" if news["scioperi"] else "false",
         "events":    events,
-        "message":   strip_emoji(message),
+        "meteo_summary": strip_emoji(meteo_summary),
         "curiosity": strip_emoji(curiosity),
         "month_name": MONTHS_IT[now.month - 1],
         "voc":       "--",
@@ -450,7 +425,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.2.7">
+<screens version="1.3.0">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
@@ -487,16 +462,24 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </row>
     <!-- Bottom: scrollable full buongiorno -->
     <card bg="#FFFFFF" radius="6" pad="14" w="100%" scroll="true" gap="16">
-      <label text="★ Buongiorno" font="22" color="#1A1A2E" bold="true"/>
-      <label text="{message}" font="18" color="#444444" max_lines="0"/>
-      <label text="◆ Curiosita" font="22" color="#1A1A2E" bold="true"/>
-      <label text="{curiosity}" font="18" color="#555555" max_lines="0"/>
+      <card bg="#FFF3E0" radius="6" pad="10" w="100%" visible="{scioperi_visible}">
+        <label text="⚠ Scioperi in arrivo" font="18" color="#E65100" bold="true"/>
+        <list items="{scioperi}" font="16" color="#BF360C" max_lines="2"/>
+      </card>
+      <label text="☁ Meteo" font="22" color="#1A1A2E" bold="true"/>
+      <label text="{meteo_summary}" font="18" color="#444444" max_lines="0"/>
+      <label text="★ Notizie Italia" font="22" color="#1A1A2E" bold="true"/>
+      <list items="{news_italia}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
+      <label text="★ Notizie Estero" font="22" color="#1A1A2E" bold="true"/>
+      <list items="{news_estero}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
+      <label text="★ Milano" font="22" color="#1A1A2E" bold="true"/>
+      <list items="{news_milano}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
       <label text="$ Mercati" font="22" color="#1A1A2E" bold="true"/>
       <crypto_row symbol="{btc_symbol}" price="{btc_price}" change="{btc_change}" trend="{btc_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{eth_symbol}" price="{eth_price}" change="{eth_change}" trend="{eth_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{iotx_symbol}" price="{iotx_price}" change="{iotx_change}" trend="{iotx_trend}" up_color="#00A885" down_color="#E53935"/>
-      <label text="★ Notizie" font="22" color="#1A1A2E" bold="true"/>
-      <list items="{news}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
+      <label text="◆ Curiosita" font="22" color="#1A1A2E" bold="true"/>
+      <label text="{curiosity}" font="18" color="#555555" max_lines="0"/>
     </card>
     <card bg="#E53935" radius="6" pad="12" w="100%" visible="{alert_visible}">
       <label text="⚠ {alert}" font="16" color="#FFFFFF" align="center"/>
