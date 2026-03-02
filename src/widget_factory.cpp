@@ -419,6 +419,8 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     String yearAttr     = _attr(attrs, "year",        "{cal_year}");
     String monthAttr    = _attr(attrs, "month",       "{cal_month}");
     String todayAttr    = _attr(attrs, "today",       "{cal_today}");
+    String startDowAttr = _attr(attrs, "startdow",    "{cal_startdow}");
+    String daysAttr     = _attr(attrs, "days",        "{cal_days}");
     String evDaysAttr   = _attr(attrs, "event_days",  "{event_days}");
     lv_color_t hlCol    = _attrColor(attrs, "highlight_color", 0xD63384);  // fuchsia today
     lv_color_t txtCol   = _attrColor(attrs, "text_color",      0x1A1A2E);
@@ -469,7 +471,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         lv_obj_set_size(cell, CELL_W, CELL_H);
         lv_hlp_set_bg(cell, cellBg);
         lv_hlp_set_border_none(cell);
-        lv_hlp_set_radius(cell, 8);
+        lv_hlp_set_radius(cell, 3);
         lv_hlp_no_scroll(cell);
         lv_hlp_set_pad_all(cell, 0);
         lv_obj_set_style_layout(cell, 0, 0);  // no flex — manual placement
@@ -495,7 +497,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
         cells[i] = cell;
     }
 
-    struct CalState { int year=0, month=0, today=0; std::set<int> evDays; std::set<int> holDays; };
+    struct CalState { int year=0, month=0, today=0, startDow=0, daysInMonth=0; std::set<int> evDays; std::set<int> holDays; };
     auto* state = new CalState();
     lv_obj_t** capturedCells = cells;
     lv_color_t capturedHl  = hlCol;
@@ -504,18 +506,12 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
 
     lv_color_t capturedCellBg = cellBg;
     auto rebuild = [capturedCells, state, capturedHl, capturedTxt, capturedDot, capturedCellBg]() {
-        int y = state->year, m = state->month, today = state->today;
-        if (y < 2020 || m < 1 || m > 12) return;
+        int today = state->today;
+        if (state->daysInMonth < 1) return;
 
-        // Sakamoto's algorithm: returns 0=Sun..6=Sat, no mktime needed
-        static const int _t[] = {0,3,2,5,0,3,5,1,4,6,2,4};
-        int _y = y; if (m < 3) _y--;
-        int wday = (_y + _y/4 - _y/100 + _y/400 + _t[m-1] + 1) % 7; // day=1
-        int startDow = (wday + 6) % 7; // 0=Mon..6=Sun
-
-        int daysInMonth = 31;
-        if (m==4||m==6||m==9||m==11) daysInMonth=30;
-        else if (m==2) daysInMonth=((y%4==0&&y%100!=0)||y%400==0)?29:28;
+        // Use server-computed values (Python calendar is authoritative)
+        int startDow    = state->startDow;
+        int daysInMonth = (state->daysInMonth > 0) ? state->daysInMonth : 31;
 
         for (int i = 0; i < 42; i++) {
             int day = i - startDow + 1;
@@ -576,6 +572,19 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     reg(yearAttr,  &state->year);
     reg(monthAttr, &state->month);
     reg(todayAttr, &state->today);
+
+    // startdow + days from server
+    auto regInt = [&](const String& attr, int* field) {
+        if (attr.startsWith("{") && attr.endsWith("}")) {
+            String key = attr.substring(1, attr.length()-1);
+            _engine.registerTrend(key.c_str(), [state, rebuild, field](const String& v) {
+                *field = v.toInt(); rebuild();
+            });
+            *field = _engine.get(key.c_str()).toInt();
+        } else { *field = attr.toInt(); }
+    };
+    regInt(startDowAttr, &state->startDow);
+    regInt(daysAttr,     &state->daysInMonth);
 
     // holiday_days
     auto parseIntSet = [](const String& v, std::set<int>& s) {

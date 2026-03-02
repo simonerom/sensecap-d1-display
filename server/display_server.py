@@ -10,7 +10,7 @@ import re
 import subprocess
 import threading
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import caldav
@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.22"
+SPEC_VERSION = "1.3.23"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
