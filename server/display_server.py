@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.35"
+SPEC_VERSION = "1.3.36"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -599,7 +599,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <col flex="1" gap="10">
         <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" flex="1">
           <label text="Interno" font="18" color="#1A1A2E" bold="true" align="center"/>
-          <label text="{indoor_temp}" font="20" color="#5B21B6" align="center" bold="true"/>
+          <label text="{indoor_temp}" font="16" color="#5B21B6" align="center" bold="true"/>
           <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
         </card>
         <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" flex="1">
