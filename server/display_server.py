@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.20"
+SPEC_VERSION = "1.3.21"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -482,6 +482,18 @@ def build_data():
     curiosity = get_curiosity(now)
 
     return {
+
+        # event_days: comma-separated day numbers of current month with events
+        import calendar as _cal
+        ev_days = set()
+        for ev in events:
+            try:
+                ev_dt = datetime.strptime(ev.get("start","")[:10], "%Y-%m-%d")
+                if ev_dt.year == now.year and ev_dt.month == now.month:
+                    ev_days.add(ev_dt.day)
+            except Exception:
+                pass
+        result["event_days"] = ",".join(str(d) for d in sorted(ev_days))
         "_version":   SPEC_VERSION,
         "updated_at": now.strftime("%H:%M"),
         "updated_ts": int(now.timestamp()),
@@ -594,12 +606,12 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </card>
   </screen>
 
-  <screen id="calendar" bg="#F5F5F5">
-    <calendar_grid year="{cal_year}" month="{cal_month}" today="{cal_today}"
-      highlight_color="#00A885" text_color="#1A1A2E" header_color="#888888"/>
+  <screen id="calendar" bg="#F0F0F6" pad="10">
+    <calendar_grid year="{cal_year}" month="{cal_month}" today="{cal_today}" event_days="{event_days}"
+      highlight_color="#5B21B6" text_color="#1A1A2E" header_color="#888888" dot_color="#5B21B6"/>
     <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="16" w="100%" scroll="true">
-      <label text="◉ Prossimi eventi" font="18" color="#1A1A2E" bold="true"/>
-      <events_list items="{events}" font="15" color="#1A1A2E" date_color="#00A885"/>
+      <label text="Prossimi eventi" font="16" color="#5B21B6" bold="true"/>
+      <events_list items="{events}" font="15" color="#1A1A2E" date_color="#5B21B6"/>
     </card>
     <row gap="12" pad="12">
       <card flex="1" bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="2" radius="6" pad="12">

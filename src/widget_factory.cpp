@@ -2,6 +2,7 @@
 // widget_factory.cpp
 // =============================================================================
 #include "widget_factory.h"
+#include <set>
 #include "../include/config.h"
 
 WidgetFactory::WidgetFactory(PlaceholderEngine& engine) : _engine(engine) {}
@@ -412,174 +413,183 @@ lv_obj_t* WidgetFactory::_buildCryptoRow(lv_obj_t* parent, const AttrMap& attrs)
 }
 
 // =============================================================================
-// _buildCalendarGrid — 7x7 grid (header row + 6 weeks)
+// _buildCalendarGrid — redesigned: white card, big cells, today circle, event dots
 // =============================================================================
 lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& attrs) {
-    String yearAttr  = _attr(attrs, "year",  "{cal_year}");
-    String monthAttr = _attr(attrs, "month", "{cal_month}");
-    String todayAttr = _attr(attrs, "today", "{cal_today}");
-    lv_color_t hlCol  = _attrColor(attrs, "highlight_color", 0x00D4AA);
-    lv_color_t txtCol = _attrColor(attrs, "text_color",      0x1A1A2E);
-    lv_color_t hdrCol = _attrColor(attrs, "header_color",    0x888888);
+    String yearAttr     = _attr(attrs, "year",        "{cal_year}");
+    String monthAttr    = _attr(attrs, "month",       "{cal_month}");
+    String todayAttr    = _attr(attrs, "today",       "{cal_today}");
+    String evDaysAttr   = _attr(attrs, "event_days",  "{event_days}");
+    lv_color_t hlCol    = _attrColor(attrs, "highlight_color", 0x5B21B6);
+    lv_color_t txtCol   = _attrColor(attrs, "text_color",      0x1A1A2E);
+    lv_color_t hdrCol   = _attrColor(attrs, "header_color",    0x888888);
+    lv_color_t dotCol   = _attrColor(attrs, "dot_color",       0x5B21B6);
 
-    static const char* dayNames[] = { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" };
+    // Italian day headers Mon-first
+    static const char* dayNames[] = { "Lu","Ma","Me","Gi","Ve","Sa","Do" };
 
-    // Outer container
-    lv_obj_t* cont = lv_hlp_obj(parent);
-    lv_obj_set_width(cont, LV_PCT(100));
-    lv_obj_set_height(cont, LV_SIZE_CONTENT);
-    lv_hlp_flex_col(cont, 2);
+    const int CELL_W = 480 / 7;   // ~68px
+    const int CELL_H = 52;
+
+    // Outer white card
+    lv_obj_t* card = lv_hlp_card(parent, lv_hlp_hex(0xFFFFFF), 12, 0);
+    lv_obj_set_width(card, LV_PCT(100));
+    lv_obj_set_height(card, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_all(card, 8, 0);
+    lv_hlp_flex_col(card, 4);
 
     // Day-of-week header row
-    lv_obj_t* hdr = lv_hlp_obj(cont);
+    lv_obj_t* hdr = lv_hlp_obj(card);
     lv_obj_set_width(hdr, LV_PCT(100));
-    lv_obj_set_height(hdr, LV_SIZE_CONTENT);
+    lv_obj_set_height(hdr, 24);
     lv_hlp_flex_row(hdr, 0);
     for (int d = 0; d < 7; d++) {
         lv_obj_t* lbl = lv_label_create(hdr);
         lv_label_set_text(lbl, dayNames[d]);
-        lv_hlp_set_font(lbl, lv_hlp_font(12));
+        lv_hlp_set_font(lbl, lv_hlp_font(13));
         lv_hlp_set_text_color(lbl, hdrCol);
-        lv_obj_set_width(lbl, LV_PCT(100/7));
+        lv_obj_set_width(lbl, CELL_W);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
-        lv_hlp_flex_grow(lbl, 1);
     }
 
-    // 42 day cells (6 rows x 7 cols) — stored in a heap array for the rebuild fn
-    // We allocate the cells array on the heap so the lambda can capture it.
-    lv_obj_t** cells = (lv_obj_t**)malloc(42 * sizeof(lv_obj_t*));
-    for (int i = 0; i < 42; i++) {
-        // Each cell is a small row in a flex-row week container
-        // We'll create week rows lazily inside the rebuild fn.
-        // For now, create all 42 labels inside a flex-row-wrap container.
-        cells[i] = nullptr;
-    }
-
-    // Grid container (flex wrap)
-    lv_obj_t* grid = lv_hlp_obj(cont);
+    // 42 day cells
+    lv_obj_t* grid = lv_hlp_obj(card);
     lv_obj_set_width(grid, LV_PCT(100));
     lv_obj_set_height(grid, LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(grid, LV_FLEX_FLOW_ROW_WRAP);
-    lv_obj_set_style_pad_row(grid, 4, 0);
+    lv_obj_set_style_pad_row(grid, 2, 0);
     lv_obj_set_style_pad_column(grid, 0, 0);
 
-    // Create 42 label cells
+    lv_obj_t** cells = (lv_obj_t**)malloc(42 * sizeof(lv_obj_t*));
     for (int i = 0; i < 42; i++) {
         lv_obj_t* cell = lv_obj_create(grid);
-        lv_obj_set_size(cell, LV_PCT(100/7), 28);
+        lv_obj_set_size(cell, CELL_W, CELL_H);
         lv_hlp_set_bg(cell, lv_color_black(), LV_OPA_TRANSP);
         lv_hlp_set_border_none(cell);
-        lv_hlp_set_radius(cell, 4);
+        lv_hlp_set_radius(cell, 8);
         lv_hlp_no_scroll(cell);
-        lv_hlp_set_pad_all(cell, 1);
+        lv_hlp_set_pad_all(cell, 2);
+        lv_hlp_flex_col(cell, 1);
+        lv_obj_set_style_flex_main_place(cell, LV_FLEX_ALIGN_CENTER, 0);
+        lv_obj_set_style_flex_cross_place(cell, LV_FLEX_ALIGN_CENTER, 0);
 
+        // Day number label
         lv_obj_t* lbl = lv_label_create(cell);
         lv_label_set_text(lbl, "");
-        lv_hlp_set_font(lbl, lv_hlp_font(12));
+        lv_hlp_set_font(lbl, lv_hlp_font(16));
         lv_hlp_set_text_color(lbl, txtCol);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_center(lbl);
+
+        // Event dot (hidden by default)
+        lv_obj_t* dot = lv_obj_create(cell);
+        lv_obj_set_size(dot, 18, 3);
+        lv_hlp_set_bg(dot, dotCol);
+        lv_hlp_set_border_none(dot);
+        lv_hlp_set_radius(dot, 2);
+        lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
+
         cells[i] = cell;
     }
 
-    // Helper: rebuild calendar from year/month/today integers
-    // Stored as a lambda shared by all three placeholder registrations.
-    struct CalState { int year = 0, month = 0, today = 0; };
+    struct CalState { int year=0, month=0, today=0; std::set<int> evDays; };
     auto* state = new CalState();
-    auto* capturedCells = cells;
-    lv_color_t capturedHl = hlCol;
+    lv_obj_t** capturedCells = cells;
+    lv_color_t capturedHl  = hlCol;
     lv_color_t capturedTxt = txtCol;
+    lv_color_t capturedDot = dotCol;
 
-    auto rebuild = [capturedCells, state, capturedHl, capturedTxt]() {
+    auto rebuild = [capturedCells, state, capturedHl, capturedTxt, capturedDot]() {
         int y = state->year, m = state->month, today = state->today;
         if (y < 2020 || m < 1 || m > 12) return;
 
-        // Day-of-week of month's first day (0=Sun, 1=Mon … 6=Sat → 0=Mon layout)
         struct tm t = {};
         t.tm_year = y - 1900; t.tm_mon = m - 1; t.tm_mday = 1;
         mktime(&t);
-        int startDow = (t.tm_wday + 6) % 7;  // 0=Mon
+        int startDow = (t.tm_wday + 6) % 7; // 0=Mon
 
-        // Days in month
         int daysInMonth = 31;
-        if (m == 4 || m == 6 || m == 9 || m == 11) daysInMonth = 30;
-        else if (m == 2) daysInMonth = ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) ? 29 : 28;
+        if (m==4||m==6||m==9||m==11) daysInMonth=30;
+        else if (m==2) daysInMonth=((y%4==0&&y%100!=0)||y%400==0)?29:28;
 
         for (int i = 0; i < 42; i++) {
             int day = i - startDow + 1;
             lv_obj_t* cell = capturedCells[i];
             lv_obj_t* lbl  = lv_obj_get_child(cell, 0);
+            lv_obj_t* dot  = lv_obj_get_child(cell, 1);
             if (!lbl) continue;
 
             if (day < 1 || day > daysInMonth) {
                 lv_label_set_text(lbl, "");
                 lv_hlp_set_bg(cell, lv_color_black(), LV_OPA_TRANSP);
+                if (dot) lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
             } else {
                 char buf[4];
                 snprintf(buf, sizeof(buf), "%d", day);
                 lv_label_set_text(lbl, buf);
-                if (day == today) {
+                bool isToday = (day == today);
+                if (isToday) {
                     lv_hlp_set_bg(cell, capturedHl);
-                    lv_hlp_set_text_color(lbl, lv_color_black());
+                    lv_hlp_set_text_color(lbl, lv_color_white());
+                    lv_hlp_set_radius(cell, 8);
                 } else {
                     lv_hlp_set_bg(cell, lv_color_black(), LV_OPA_TRANSP);
                     lv_hlp_set_text_color(lbl, capturedTxt);
+                }
+                // Event dot
+                if (dot) {
+                    bool hasEv = state->evDays.count(day) > 0;
+                    if (hasEv && !isToday) {
+                        lv_hlp_set_bg(dot, capturedDot);
+                        lv_obj_clear_flag(dot, LV_OBJ_FLAG_HIDDEN);
+                    } else if (hasEv && isToday) {
+                        lv_hlp_set_bg(dot, lv_color_white());
+                        lv_obj_clear_flag(dot, LV_OBJ_FLAG_HIDDEN);
+                    } else {
+                        lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
+                    }
                 }
             }
         }
     };
 
-    // Register each placeholder with a single-value array rebuild adapter
-    auto makeArrayFn = [state, rebuild](int* field) {
-        return [state, rebuild, field](lv_obj_t*, const std::vector<String>& items) {
-            if (!items.empty()) *field = items[0].toInt();
+    // Register placeholders
+    auto reg = [&](const String& attr, int* field) {
+        if (attr.startsWith("{") && attr.endsWith("}")) {
+            String key = attr.substring(1, attr.length()-1);
+            _engine.registerTrend(key.c_str(), [state, rebuild, field](const String& v) {
+                *field = v.toInt(); rebuild();
+            });
+            *field = _engine.get(key.c_str()).toInt();
+        } else { *field = attr.toInt(); }
+    };
+    reg(yearAttr,  &state->year);
+    reg(monthAttr, &state->month);
+    reg(todayAttr, &state->today);
+
+    // event_days: comma-separated day numbers, e.g. "3,9,10,25"
+    if (evDaysAttr.startsWith("{") && evDaysAttr.endsWith("}")) {
+        String key = evDaysAttr.substring(1, evDaysAttr.length()-1);
+        auto parseEvDays = [state, rebuild](const String& v) {
+            state->evDays.clear();
+            int start = 0;
+            while (start < (int)v.length()) {
+                int comma = v.indexOf(',', start);
+                if (comma < 0) comma = v.length();
+                String tok = v.substring(start, comma);
+                tok.trim();
+                int d = tok.toInt();
+                if (d > 0) state->evDays.insert(d);
+                start = comma + 1;
+            }
             rebuild();
         };
-    };
-    // We use registerArray with a single-item "array" as a trick for integer values
-    // Actually these are scalar placeholders — use registerLabel via a hidden label approach.
-    // Simpler: register a dummy invisible label that we'll watch for changes via a custom callback.
-    // CLEANEST approach: register a custom rebuild via the scalar label mechanism won't work
-    // for calendar. Instead, we register a virtual array with a single-item list for each scalar.
+        _engine.registerTrend(key.c_str(), [parseEvDays](const String& v) { parseEvDays(v); });
+        parseEvDays(_engine.get(key.c_str()));
+    }
 
-    // Create hidden proxy labels so the scalar mechanism triggers the rebuild:
-    struct CalProxy {
-        int* field; CalState* state; std::function<void()> rebuild;
-        static void cb(lv_event_t* e) {
-            // Not needed — we use registerLabel + post-update hook
-        }
-    };
-    // Use the trend mechanism (single TrendColorFn called with new value as string):
-    if (yearAttr.startsWith("{") && yearAttr.endsWith("}")) {
-        String key = yearAttr.substring(1, yearAttr.length() - 1);
-        _engine.registerTrend(key.c_str(), [state, rebuild](const String& v) {
-            state->year = v.toInt(); rebuild();
-        });
-        state->year = _engine.get(key.c_str()).toInt();
-    } else { state->year = yearAttr.toInt(); }
-
-    if (monthAttr.startsWith("{") && monthAttr.endsWith("}")) {
-        String key = monthAttr.substring(1, monthAttr.length() - 1);
-        _engine.registerTrend(key.c_str(), [state, rebuild](const String& v) {
-            state->month = v.toInt(); rebuild();
-        });
-        state->month = _engine.get(key.c_str()).toInt();
-    } else { state->month = monthAttr.toInt(); }
-
-    if (todayAttr.startsWith("{") && todayAttr.endsWith("}")) {
-        String key = todayAttr.substring(1, todayAttr.length() - 1);
-        _engine.registerTrend(key.c_str(), [state, rebuild](const String& v) {
-            state->today = v.toInt(); rebuild();
-        });
-        state->today = _engine.get(key.c_str()).toInt();
-    } else { state->today = todayAttr.toInt(); }
-
-    // Initial render
     rebuild();
-
-    return cont;
+    return card;
 }
-
 // =============================================================================
 // _buildEventsList
 // =============================================================================
