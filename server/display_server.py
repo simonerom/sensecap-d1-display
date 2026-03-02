@@ -62,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.0"
+SPEC_VERSION = "1.3.1"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -274,6 +274,33 @@ def _parse_rss_titles(raw, skip=1, limit=4):
     titles = [t for t in titles if len(t) > 10]
     return titles[skip:skip + limit]
 
+def _get_scioperi_summary():
+    """Fetch article about Milan strikes and extract key date sentences."""
+    try:
+        url = "https://www.ilgiorno.it/milano/cronaca/sciopero-trasporti-atm-milano-aerei-marzo-txdoxfiu"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            raw = r.read().decode("utf-8", errors="replace")
+        # Strip tags
+        text = re.sub(r"<[^>]+>", " ", raw)
+        text = re.sub(r"\s+", " ", text)
+        # Find sentences with dates + keywords
+        sentences = re.split(r"[.;]", text)
+        hits = []
+        for s in sentences:
+            s = s.strip()
+            if len(s) < 20: continue
+            has_date = re.search(r"\b\d{1,2}\s+(marzo|aprile|maggio|gennaio|febbraio)\b", s, re.IGNORECASE)
+            has_kw = any(w in s.lower() for w in ["sciopero","atm","metro","trasport","bus","tram"])
+            if has_date and has_kw and re.match(r'^[A-ZÀ-Ú][a-zà-ú]', s):
+                s = strip_emoji(s[:110])
+                hits.append(s)
+            if len(hits) >= 3:
+                break
+        return hits if hits else []
+    except:
+        return []
+
 def _fetch_rss(url, skip=1, limit=4):
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -287,9 +314,7 @@ def get_news():
     italia  = _fetch_rss("https://www.ansa.it/sito/ansait_rss.xml", skip=1, limit=4)
     estero  = _fetch_rss("https://news.google.com/rss/search?q=mondo&hl=it&gl=IT&ceid=IT:it", skip=2, limit=4)
     milano  = _fetch_rss("https://news.google.com/rss/search?q=Milano&hl=it&gl=IT&ceid=IT:it", skip=2, limit=3)
-    scioperi= _fetch_rss("https://news.google.com/rss/search?q=sciopero+ATM+Milano+metro&hl=it&gl=IT&ceid=IT:it", skip=2, limit=2)
-    # filter scioperi to only relevant ones
-    scioperi = [t for t in scioperi if any(w in t.lower() for w in ["sciopero","metro","atm","tram","bus","trasport"])]
+    scioperi = _get_scioperi_summary()
     return {
         "italia":  [strip_emoji(t) for t in italia[:3]],
         "estero":  [strip_emoji(t) for t in estero[:3]],
@@ -411,6 +436,7 @@ def build_data():
         "news_estero":  news["estero"],
         "news_milano":  news["milano"],
         "scioperi":     news["scioperi"],
+        "scioperi_text": "\n".join(news["scioperi"]) if news["scioperi"] else "",
         "scioperi_visible": "true" if news["scioperi"] else "false",
         "events":    events,
         "meteo_summary": strip_emoji(meteo_summary),
@@ -425,7 +451,7 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.3.0">
+<screens version="1.3.1">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
@@ -464,7 +490,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <card bg="#FFFFFF" radius="6" pad="14" w="100%" scroll="true" gap="16">
       <card bg="#FFF3E0" radius="6" pad="10" w="100%" visible="{scioperi_visible}">
         <label text="⚠ Scioperi in arrivo" font="18" color="#E65100" bold="true"/>
-        <list items="{scioperi}" font="16" color="#BF360C" max_lines="2"/>
+        <label text="{scioperi_text}" font="16" color="#BF360C" max_lines="0"/>
       </card>
       <label text="☁ Meteo" font="22" color="#1A1A2E" bold="true"/>
       <label text="{meteo_summary}" font="18" color="#444444" max_lines="0"/>
