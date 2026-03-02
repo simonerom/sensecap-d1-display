@@ -275,59 +275,68 @@ def _parse_rss_titles(raw, skip=1, limit=4):
     return titles[skip:skip + limit]
 
 def _get_scioperi_summary():
-    """Fetch article about Milan strikes and extract key date sentences."""
+    """Parse MIT scioperi registry for upcoming ATM/metro Milan strikes and others."""
     try:
-        url = "https://www.ilgiorno.it/milano/cronaca/sciopero-trasporti-atm-milano-aerei-marzo-txdoxfiu"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=8) as r:
+        req = urllib.request.Request(
+            "https://scioperi.mit.gov.it/mit2/public/scioperi",
+            headers={"User-Agent": "Mozilla/5.0", "Accept-Encoding": "identity"})
+        with urllib.request.urlopen(req, timeout=10) as r:
             raw = r.read().decode("utf-8", errors="replace")
-        # Strip tags
+
+        # Strip tags and split into rows by date pattern DD/MM/YYYY
         text = re.sub(r"<[^>]+>", " ", raw)
         text = re.sub(r"\s+", " ", text)
-        # Find sentences with dates + keywords
-        sentences = re.split(r"[.;]", text)
-        hits = []
-        for s in sentences:
-            s = s.strip()
-            if len(s) < 20: continue
-            date_m = re.search(r"\b(\d{1,2}\s+(?:marzo|aprile|maggio|gennaio|febbraio))\b", s, re.IGNORECASE)
-            has_kw = any(w in s.lower() for w in ["atm","metro","tram","bus","trasport","treno","aereo","generale"]) and "sciopero" in s.lower()
-            if date_m and has_kw and re.match(r'^[A-ZÀ-Ú][a-zà-ú]', s):
-                date_str = date_m.group(1)
-                # Build compact line: "9 marzo: sciopero generale / ATM / trasporti"
-                # For ATM/metro: try to extract orari/fasce from the sentence
-                is_atm = any(w in s.lower() for w in ["atm","metro","tram","bus"])
-                if is_atm:
-                    # Extract duration (24 ore, dalle X alle Y)
-                    dur = re.search(r"(\d{1,2}) ore|intera giornata|24 ore", s, re.I)
-                    fasce = re.search(r"dalle (\d{1,2}[.:,]?\d{0,2}) alle (\d{1,2}[.:,]?\d{0,2})", s, re.I)
-                    if dur and "24" in dur.group(0): detail = " - 24h"
-                    elif dur and "intera" in dur.group(0): detail = " - intera giornata"
-                    elif fasce: detail = f" - dalle {fasce.group(1)} alle {fasce.group(2)}"
-                    else: detail = ""
-                    line = f"{date_str}: ATM/metro{detail}"
-                elif re.search(r"generale", s, re.I): line = f"{date_str}: sciopero generale"
-                elif re.search(r"aereo|volo", s, re.I): line = f"{date_str}: aerei"
-                elif re.search(r"treno|trenitalia|trenord", s, re.I): line = f"{date_str}: treni"
-                else: line = f"{date_str}: trasporti"
-                hits.append(line)
-            if len(hits) >= 3:
-                break
-        # Deduplicate and remove past dates
+
         from datetime import date as _date
         today = _date.today()
-        MONTHS = {"gennaio":1,"febbraio":2,"marzo":3,"aprile":4,"maggio":5,"giugno":6,
-                  "luglio":7,"agosto":8,"settembre":9,"ottobre":10,"novembre":11,"dicembre":12}
-        seen = set(); filtered = []
-        for h in hits:
-            m = re.match(r"(\d{1,2}) (\w+):", h)
-            if m:
-                d, mon = int(m.group(1)), MONTHS.get(m.group(2).lower(), 0)
-                if mon and _date(today.year, mon, d) <= today: continue
-            if h not in seen:
-                seen.add(h); filtered.append(h)
-        return filtered[:3] if filtered else []
-    except:
+        MONTHS_IT = ["","gennaio","febbraio","marzo","aprile","maggio","giugno",
+                     "luglio","agosto","settembre","ottobre","novembre","dicembre"]
+
+        # Find rows: date + sector + who + duration + scope
+        pattern = r"(\d{2}/\d{2}/\d{4})\s+\1\s+[^\d]{5,80?}?(Trasporto pubblico locale|Generale|Ferroviario|Aereo)[^\d]{0,200?}?(\d{1,2} ORE|INTERA GIORNATA|ORE \d|\d ORE)"
+        entries = re.findall(
+            r"(\d{2}/\d{2}/\d{4})\s+\1\s+([\w\s\-/]+?)\s+(Trasporto pubblico locale|Generale|Ferroviario|Aereo)\s+([\w\s\(\)\.,:]+?)\s+(\d+ ORE|INTERA GIORNATA|[\d\.]+ ORE: [^\s]+)",
+            text)
+
+        hits = []
+        seen = set()
+        for m in entries:
+            date_str, union, sector, who, duration = m
+            try:
+                d, mo, y = int(date_str[:2]), int(date_str[3:5]), int(date_str[6:])
+                ev_date = _date(y, mo, d)
+            except: continue
+            if ev_date <= today: continue
+
+            date_it = f"{d} {MONTHS_IT[mo]}"
+            who_up = who.upper()
+
+            is_atm_milan = "ATM" in who_up and ("MILANO" in who_up or "MILAN" in who_up or sector == "Trasporto pubblico locale")
+            is_general = sector == "Generale" and "ESCLUSIONE" not in who_up and "ESCLUSO" not in who_up
+
+            if is_atm_milan:
+                dur = duration.strip()
+                if "INTERA" in dur or "24" in dur: dur_str = "24h"
+                else:
+                    m2 = re.match(r"(\d+) ORE", dur)
+                    dur_str = f"{m2.group(1)}h" if m2 else dur[:10]
+                line = f"{date_it}: ATM Milano - {dur_str}"
+            elif is_general:
+                line = f"{date_it}: sciopero generale"
+            elif sector == "Ferroviario" and "NAZIONALE" in text[text.find(date_str):text.find(date_str)+200].upper():
+                line = f"{date_it}: treni"
+            elif sector == "Aereo":
+                line = f"{date_it}: aerei"
+            else:
+                continue
+
+            if line not in seen:
+                seen.add(line)
+                hits.append((ev_date, line))
+
+        hits.sort(key=lambda x: x[0])
+        return [h[1] for h in hits[:4]]
+    except Exception as e:
         return []
 
 def _fetch_rss(url, skip=1, limit=4):
