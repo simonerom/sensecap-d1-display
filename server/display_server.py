@@ -22,7 +22,13 @@ EMOJI_MONO = {
     "☀️": "☀", "🌤️": "☁", "⛅": "☁", "🌥️": "☁", "🌦️": "☁",
     "🌧️": "☁", "🌨️": "☁", "🌩️": "⚡", "⛈️": "⚡", "🌪️": "~",
     "🌡️": "▲", "💧": "~", "❄️": "*", "🌈": "~",
-    "📰": "★", "📅": "◉", "📆": "◉", "🗓️": "◉",
+    "📰": "★",
+    # Curly quotes → straight (not in font)
+    "‘": "'", "’": "'",   # ' '
+    "“": '"', "”": '"',   # " "
+    "–": "-", "—": "-",   # – —
+    "…": "...",                # …
+    "«": '"', "»": '"',   # « » "📅": "◉", "📆": "◉", "🗓️": "◉",
     "💰": "$", "💵": "$", "💶": "$", "📈": "▲", "📉": "▼",
     "⭐": "★", "🌟": "★", "✨": "★", "💡": "★",
     "⚠️": "⚠", "❗": "!", "❕": "!", "🔴": "(!)",
@@ -56,7 +62,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.2.6"
+SPEC_VERSION = "1.2.7"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -444,43 +450,43 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.2.6">
+<screens version="1.2.7">
 
   <screen id="home" bg="#C8F0E8">
     <row gap="10" pad="10" h="310">
       <!-- Left col: Interno + Esterno -->
       <col flex="1" gap="10">
-        <card bg="#FFFFFF" radius="16" pad="16" flex="1">
+        <card bg="#FFFFFF" radius="6" pad="16" flex="1">
           <label text="Interno" font="18" color="#1A1A2E" bold="true" align="center"/>
           <label text="{indoor_temp}" font="24" color="#00A885" align="center" bold="true"/>
           <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
         </card>
-        <card bg="#FFFFFF" radius="16" pad="16" flex="1">
+        <card bg="#FFFFFF" radius="6" pad="16" flex="1">
           <label text="Esterno" font="18" color="#1A1A2E" bold="true" align="center"/>
           <label text="{outdoor_temp}" font="24" color="#2B7DE9" align="center" bold="true"/>
           <label text="{outdoor_hum}" font="16" color="#888888" align="center"/>
         </card>
       </col>
       <!-- Center: tall date card -->
-      <card bg="#FFFFFF" radius="16" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
+      <card bg="#FFFFFF" radius="6" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
         <label text="{weekday}" font="28" color="#444444" align="center"/>
         <label text="{day}" font="192" color="{day_color}" align="center" bold="true"/>
         <label text="{month_name}" font="28" color="#444444" align="center"/>
       </card>
       <!-- Right col: VOC + spare -->
       <col flex="1" gap="10">
-        <card bg="#FFFFFF" radius="16" pad="16" flex="1">
+        <card bg="#FFFFFF" radius="6" pad="16" flex="1">
           <label text="VOC" font="18" color="#1A1A2E" bold="true" align="center"/>
           <label text="{voc}" font="24" color="#00A885" align="center" bold="true"/>
         </card>
-        <card bg="#FFFFFF" radius="16" pad="16" flex="1">
+        <card bg="#FFFFFF" radius="6" pad="16" flex="1">
           <label text="CO2" font="18" color="#1A1A2E" bold="true" align="center"/>
           <label text="{co2}" font="24" color="#2B7DE9" align="center" bold="true"/>
         </card>
       </col>
     </row>
     <!-- Bottom: scrollable full buongiorno -->
-    <card bg="#FFFFFF" radius="16" pad="14" w="100%" scroll="true" gap="16">
+    <card bg="#FFFFFF" radius="6" pad="14" w="100%" scroll="true" gap="16">
       <label text="★ Buongiorno" font="22" color="#1A1A2E" bold="true"/>
       <label text="{message}" font="18" color="#444444" max_lines="0"/>
       <label text="◆ Curiosita" font="22" color="#1A1A2E" bold="true"/>
@@ -492,7 +498,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <label text="★ Notizie" font="22" color="#1A1A2E" bold="true"/>
       <list items="{news}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
     </card>
-    <card bg="#E53935" radius="12" pad="12" w="100%" visible="{alert_visible}">
+    <card bg="#E53935" radius="6" pad="12" w="100%" visible="{alert_visible}">
       <label text="⚠ {alert}" font="16" color="#FFFFFF" align="center"/>
     </card>
   </screen>
@@ -500,17 +506,17 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
   <screen id="calendar" bg="#F5F5F5">
     <calendar_grid year="{cal_year}" month="{cal_month}" today="{cal_today}"
       highlight_color="#00A885" text_color="#1A1A2E" header_color="#888888"/>
-    <card bg="#FFFFFF" radius="16" pad="16" w="100%" scroll="true">
+    <card bg="#FFFFFF" radius="6" pad="16" w="100%" scroll="true">
       <label text="◉ Prossimi eventi" font="18" color="#1A1A2E" bold="true"/>
       <events_list items="{events}" font="15" color="#1A1A2E" date_color="#00A885"/>
     </card>
     <row gap="12" pad="12">
-      <card flex="1" bg="#FFFFFF" radius="16" pad="12">
+      <card flex="1" bg="#FFFFFF" radius="6" pad="12">
         <label text="▲ Interno" font="13" color="#666666" align="center"/>
         <label text="{indoor_temp}" font="24" color="#00A885" align="center" bold="true"/>
         <label text="{indoor_hum}" font="13" color="#888888" align="center"/>
       </card>
-      <card flex="1" bg="#FFFFFF" radius="16" pad="12">
+      <card flex="1" bg="#FFFFFF" radius="6" pad="12">
         <label text="☁ Esterno" font="13" color="#666666" align="center"/>
         <label text="{outdoor_temp}" font="24" color="#2B7DE9" align="center" bold="true"/>
         <label text="{outdoor_hum}" font="13" color="#888888" align="center"/>
@@ -522,12 +528,12 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <big_clock font="128" color="#1A1A2E" align="center" format="HH:MM:SS" bold="true"/>
     <label text="{weekday} {day} {month}" font="20" color="#666666" align="center"/>
     <row gap="12" pad="16">
-      <card flex="1" bg="#FFFFFF" radius="16" pad="16">
+      <card flex="1" bg="#FFFFFF" radius="6" pad="16">
         <label text="▲ Interno" font="13" color="#666666" align="center"/>
         <label text="{indoor_temp}" font="32" color="#00A885" align="center" bold="true"/>
         <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
       </card>
-      <card flex="1" bg="#FFFFFF" radius="16" pad="16">
+      <card flex="1" bg="#FFFFFF" radius="6" pad="16">
         <label text="☁ Esterno" font="13" color="#666666" align="center"/>
         <label text="{outdoor_temp}" font="32" color="#2B7DE9" align="center" bold="true"/>
         <label text="{condition}" font="13" color="#888888" align="center"/>
