@@ -184,6 +184,7 @@ static void lcd_init_sequence() {
     // Sunlight readable enhancement (from ESPHome working config)
     LCD_CMD1(0xE0, 0x1F);
 
+    LCD_CMD1(0x36, 0xC0);   // MADCTL: mirror X + mirror Y (180° rotation)
     LCD_CMD(0x21);          // Display Inversion ON (IPS panel)
     LCD_CMD1(0x3A, 0x60);   // Pixel format: RGB666
 
