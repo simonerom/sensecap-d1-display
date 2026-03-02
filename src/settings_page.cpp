@@ -239,11 +239,11 @@ void SettingsPage::applyCalibration(const TouchCalibration& cal) {}
 void SettingsPage::startCalibration() {}
 
 // =============================================================================
-// _buildKeyboardPanel — fullscreen overlay
+// _buildKeyboardPanel — fullscreen overlay on lv_layer_top()
 // =============================================================================
-void SettingsPage::_buildKeyboardPanel(lv_obj_t* screenParent) {
-    // Fullscreen overlay (covers entire screen)
-    _kbdPanel = lv_obj_create(screenParent);
+void SettingsPage::_buildKeyboardPanel(lv_obj_t* /*screenParent*/) {
+    // Use lv_layer_top() so the panel is fixed above everything, never scrolls
+    _kbdPanel = lv_obj_create(lv_layer_top());
     lv_obj_set_size(_kbdPanel, SCREEN_WIDTH, SCREEN_HEIGHT);
     lv_obj_align(_kbdPanel, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_hlp_set_bg(_kbdPanel, lv_hlp_hex(0xF5F5FA));
