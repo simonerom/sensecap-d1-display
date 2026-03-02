@@ -490,7 +490,9 @@ def build_meteo_summary(now, weather, events):
     if today_events:
         parts.append("\n◉ Oggi:")
         for e in today_events:
-            parts.append(f"  {e['time']} - {e['title']}")
+            title = e.split("|||")[0] if "|||" in e else e
+            date_s = e.split("|||")[1] if "|||" in e else ""
+            parts.append(f"  {title}" + (f" - {date_s}" if date_s else ""))
     return "\n".join(parts)
 
 # ─── Data builder ─────────────────────────────────────────────────────────────
@@ -571,6 +573,7 @@ def build_data():
         "meteo_summary": strip_emoji(meteo_summary),
         "curiosity": strip_emoji(curiosity),
         "month_name": MONTHS_IT[now.month - 1],
+        "cal_header":  f"{MONTHS_IT[now.month-1]} {now.year}",
         "cal_year":     str(now.year),
         "cal_month":    str(now.month),
         "cal_today":    str(now.day),
@@ -656,11 +659,11 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
   <screen id="calendar" bg="#F0F0F6" pad="10">
     <!-- Header: mese a sx, temp int/est a dx -->
     <row gap="4" h="28" w="100%">
-      <label text="{cal_header}" font="15" bold="true" color="#1A1A2E" flex="1"/>
-      <label text="Int: " font="15" color="#666666" w="auto"/>
-      <label text="{indoor_temp}" font="15" color="#5B21B6" bold="true" w="auto"/>
-      <label text="  Est: " font="15" color="#666666" w="auto"/>
-      <label text="{outdoor_temp}" font="15" color="#5B21B6" bold="true" w="auto"/>
+      <label text="{cal_header}" font="14" bold="true" color="#1A1A2E" flex="1"/>
+      <label text="Int: " font="14" color="#666666" w="auto"/>
+      <label text="{indoor_temp}" font="14" color="#5B21B6" bold="false" w="auto"/>
+      <label text="  Est: " font="14" color="#666666" w="auto"/>
+      <label text="{outdoor_temp}" font="14" color="#5B21B6" bold="false" w="auto"/>
     </row>
     <calendar_grid today="{cal_today}" startdow="{cal_startdow}" days="{cal_days}" event_days="{event_days}" holiday_days="{holiday_days}"
       highlight_color="#D63384" text_color="#1A1A2E" header_color="#888888" cell_bg="#EFEFEF"/>
