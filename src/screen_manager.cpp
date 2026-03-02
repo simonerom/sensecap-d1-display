@@ -32,6 +32,10 @@ void ScreenManager::init(std::function<void(const AppSettings&)>      onSettings
         [this](const TouchCalibration& c) { if (_onCalDone) _onCalDone(c); }
     );
     _factory.setSettingsPage(&_settingsPage);
+    _factory.setSettingsCallbacks(
+        [this](const AppSettings& s) { if (_onSettingsSaved) _onSettingsSaved(s); },
+        [this](const TouchCalibration& cal) { if (_onCalDone) _onCalDone(cal); }
+    );
 
     // Create overlay (parented to lv_layer_top() so it's always above all screens)
     _createOverlay();

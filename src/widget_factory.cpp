@@ -659,14 +659,20 @@ lv_obj_t* WidgetFactory::_buildBigClock(lv_obj_t* parent, const AttrMap& attrs) 
 }
 
 // =============================================================================
+
+void WidgetFactory::setSettingsCallbacks(
+    std::function<void(const AppSettings&)> onSave,
+    std::function<void(const TouchCalibration&)> onCal)
+{
+    _onSettingsSaved = onSave;
+    _onCalDone = onCal;
+}
 // _buildSettingsForm
 // =============================================================================
 lv_obj_t* WidgetFactory::_buildSettingsForm(lv_obj_t* parent) {
     if (_settingsPage) {
-        // SettingsPage::build() creates its own widgets into parent.
-        // Callbacks are set by ScreenManager before this is called.
-        // We pass nullptr here; ScreenManager sets them via setSettingsPage().
-        // build() was already called by ScreenManager — just return parent.
+        // Build the settings form into parent using stored callbacks
+        _settingsPage->build(parent, _onSettingsSaved, _onCalDone);
         return parent;
     }
     // Fallback: empty placeholder

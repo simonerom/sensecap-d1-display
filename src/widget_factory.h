@@ -24,6 +24,7 @@ public:
     // Set the SettingsPage instance used by buildSettingsForm().
     // Must be called before any buildElement() call that may encounter <settings_form/>.
     void setSettingsPage(SettingsPage* sp) { _settingsPage = sp; }
+    void setSettingsCallbacks(std::function<void(const AppSettings&)> onSave, std::function<void(const TouchCalibration&)> onCal);
 
     // ---- Screen builder ----
     // Creates an lv_scr (lv_obj_create(nullptr)) for the given screen id.
@@ -43,6 +44,8 @@ public:
 private:
     PlaceholderEngine& _engine;
     SettingsPage*      _settingsPage = nullptr;
+    std::function<void(const AppSettings&)>      _onSettingsSaved;
+    std::function<void(const TouchCalibration&)> _onCalDone;
 
     // ---- Element builders ----
     lv_obj_t* _buildCard(lv_obj_t* parent, const AttrMap& attrs);
