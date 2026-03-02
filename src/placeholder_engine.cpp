@@ -77,6 +77,8 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
     setValue("time", buf);
     snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
     setValue("time_sec", buf);
+    snprintf(buf, sizeof(buf), "%02d", t.tm_sec);
+    setValue("time_ss", buf);
 
     // {date} "3 Mar"
     static const char* months[] = {
