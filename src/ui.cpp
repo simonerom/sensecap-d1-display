@@ -20,6 +20,9 @@
 // RGB data bus: R[4:0]=0-4, G[5:0]=5-10, B[4:0]=11-15
 // RGB control: DE=18, VSYNC=17, HSYNC=16, PCLK=21
 // Backlight: GPIO 45
+//
+// Touch: FT5x06, I2C 0x38, same bus SDA=39 SCL=40
+// Touch RST=PCA9535 P07, INT=PCA9535 P06 (polled, not used)
 // =============================================================================
 
 #define LCD_SCK_PIN  41
@@ -184,7 +187,6 @@ static void lcd_init_sequence() {
     // Sunlight readable enhancement (from ESPHome working config)
     LCD_CMD1(0xE0, 0x1F);
 
-    LCD_CMD1(0x36, 0xC0);   // MADCTL: mirror X + mirror Y (180° rotation)
     LCD_CMD(0x21);          // Display Inversion ON (IPS panel)
     LCD_CMD1(0x3A, 0x60);   // Pixel format: RGB666
 
@@ -269,6 +271,97 @@ void lvgl_display_init() {
     lv_disp_drv.flush_cb = disp_flush_cb;
     lv_disp_drv.draw_buf = &lv_draw_buf;
     lv_disp_drv_register(&lv_disp_drv);
+}
+
+// =============================================================================
+// FT5x06 touch driver + LVGL indev
+// Chip: FT5x06 (Focal Tech), I2C 0x38, bus SDA=39 SCL=40 (shared with PCA9535)
+// RST: PCA9535 P07 — toggled during init
+// Coordinates: 12-bit, polled. With display ROTATION=2 (180°):
+//   x_lvgl = (SCREEN_WIDTH  - 1) - x_raw
+//   y_lvgl = (SCREEN_HEIGHT - 1) - y_raw
+// =============================================================================
+#define FT5X06_ADDR          0x38
+#define FT5X06_REG_MODE      0x00
+#define FT5X06_REG_NUMTOUCH  0x02
+#define FT5X06_REG_TOUCH1_XH 0x03  // [7:6]=event [3:0]=Xhigh
+#define FT5X06_REG_TOUCH1_XL 0x04  // Xlow
+#define FT5X06_REG_TOUCH1_YH 0x05  // [7:4]=touchID [3:0]=Yhigh
+#define FT5X06_REG_TOUCH1_YL 0x06  // Ylow
+#define FT5X06_REG_THGROUP   0x80
+
+static uint8_t ft5x06_read_reg(uint8_t reg) {
+    Wire.beginTransmission(FT5X06_ADDR);
+    Wire.write(reg);
+    Wire.endTransmission(false);
+    Wire.requestFrom((uint8_t)FT5X06_ADDR, (uint8_t)1);
+    return Wire.available() ? Wire.read() : 0;
+}
+
+static void ft5x06_write_reg(uint8_t reg, uint8_t val) {
+    Wire.beginTransmission(FT5X06_ADDR);
+    Wire.write(reg);
+    Wire.write(val);
+    Wire.endTransmission();
+}
+
+static bool ft5x06_read_touch(uint16_t *x, uint16_t *y) {
+    uint8_t num = ft5x06_read_reg(FT5X06_REG_NUMTOUCH) & 0x0F;
+    if (num == 0 || num > 5) return false;
+
+    // Read 4 bytes: XH, XL, YH, YL
+    Wire.beginTransmission(FT5X06_ADDR);
+    Wire.write(FT5X06_REG_TOUCH1_XH);
+    Wire.endTransmission(false);
+    Wire.requestFrom((uint8_t)FT5X06_ADDR, (uint8_t)4);
+    if (Wire.available() < 4) return false;
+
+    uint8_t xh = Wire.read();
+    uint8_t xl = Wire.read();
+    uint8_t yh = Wire.read();
+    uint8_t yl = Wire.read();
+
+    uint16_t rx = ((xh & 0x0F) << 8) | xl;
+    uint16_t ry = ((yh & 0x0F) << 8) | yl;
+
+    // Mirror for 180° display rotation
+    *x = (SCREEN_WIDTH  - 1) - rx;
+    *y = (SCREEN_HEIGHT - 1) - ry;
+    return true;
+}
+
+static void touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
+    static uint16_t last_x = 0, last_y = 0;
+    uint16_t x, y;
+    if (ft5x06_read_touch(&x, &y)) {
+        last_x = x;
+        last_y = y;
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else {
+        data->state = LV_INDEV_STATE_RELEASED;
+    }
+    data->point.x = last_x;
+    data->point.y = last_y;
+}
+
+void lvgl_touch_init() {
+    // Reset FT5x06 via PCA9535 P07 (pca already initialized by lvgl_display_init)
+    pca.direction(PCA95x5::Port::P07, PCA95x5::Direction::OUT);
+    pca.write(PCA95x5::Port::P07, PCA95x5::Level::L);
+    delay(20);
+    pca.write(PCA95x5::Port::P07, PCA95x5::Level::H);
+    delay(50);
+
+    // Basic chip config
+    ft5x06_write_reg(FT5X06_REG_MODE,    0x00);  // Normal mode
+    ft5x06_write_reg(FT5X06_REG_THGROUP, 70);    // Touch threshold
+
+    // Register LVGL input device
+    static lv_indev_drv_t indev_drv;
+    lv_indev_drv_init(&indev_drv);
+    indev_drv.type    = LV_INDEV_TYPE_POINTER;
+    indev_drv.read_cb = touch_read_cb;
+    lv_indev_drv_register(&indev_drv);
 }
 
 void lvgl_tick_timer_init() {

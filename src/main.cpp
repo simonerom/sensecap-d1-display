@@ -181,9 +181,11 @@ void setup() {
     bool hasSettings = settingsMgr.load(appSettings);
     DEBUG_PRINTF("[Main] NVS settings loaded: configured=%d\n", hasSettings);
 
-    // Initialize display and LVGL
-    DEBUG_PRINTLN("[Main] Init display LVGL...");
+    // Initialize display, touch and LVGL
+    DEBUG_PRINTLN("[Main] Init display...");
     lvgl_display_init();
+    DEBUG_PRINTLN("[Main] Init touch...");
+    lvgl_touch_init();
     lvgl_tick_timer_init();
 
     // Initialize UI with settings-save callback
