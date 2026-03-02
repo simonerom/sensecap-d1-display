@@ -348,16 +348,16 @@ lv_obj_t* WidgetFactory::_buildCryptoRow(lv_obj_t* parent, const AttrMap& attrs)
 
     // Symbol label
     lv_obj_t* symLbl = lv_label_create(row);
-    lv_hlp_set_font(symLbl, lv_hlp_font(14));
-    lv_hlp_set_text_color(symLbl, lv_color_white());
-    lv_obj_set_width(symLbl, 60);
+    lv_hlp_set_font(symLbl, lv_hlp_font_bold(18));
+    lv_hlp_set_text_color(symLbl, lv_hlp_hex(0x1A1A2E));
+    lv_obj_set_width(symLbl, 70);
     String symRes = _resolveAndRegister(symLbl, symbolAttr.c_str());
     lv_label_set_text(symLbl, symRes.c_str());
 
     // Price label (flex grow to fill remaining space)
     lv_obj_t* priceLbl = lv_label_create(row);
-    lv_hlp_set_font(priceLbl, lv_hlp_font(14));
-    lv_hlp_set_text_color(priceLbl, lv_color_white());
+    lv_hlp_set_font(priceLbl, lv_hlp_font(18));
+    lv_hlp_set_text_color(priceLbl, lv_hlp_hex(0x333333));
     lv_hlp_flex_grow(priceLbl, 1);
     String priceRes = _resolveAndRegister(priceLbl, priceAttr.c_str());
     lv_label_set_text(priceLbl, priceRes.c_str());
