@@ -19,7 +19,7 @@
 #define POLL_INTERVAL_MS    60000
 
 // HTTP timeout in milliseconds
-#define HTTP_TIMEOUT_MS     5000
+#define HTTP_TIMEOUT_MS     15000
 
 // Layout XML caching (SPIFFS)
 #define LAYOUT_SPIFFS_PATH    "/layout.xml"   // file path in SPIFFS
@@ -28,10 +28,13 @@
 // =============================================================================
 // GROVE SENSOR (I2C)
 // =============================================================================
-// SDA=13, SCL=15 for SenseCAP Indicator D1 Pro Grove port
-#define GROVE_SDA_PIN       2
-#define GROVE_SCL_PIN       3
+// Grove port shares the main I2C bus (SDA=39, SCL=40) with PCA9535 and FT5x06.
+// GPIO 2 and 3 are RGB display data lines (R1/R2) and cannot be used for I2C.
+#define GROVE_SDA_PIN       39
+#define GROVE_SCL_PIN       40
 #define SHT40_ADDR          0x44
+#define SHT40_ADDR_ALT1     0x45
+#define SHT40_ADDR_ALT2     0x48   // SHT31 with ADDR=HIGH
 #define DHT20_ADDR          0x38
 #define SENSOR_POLL_MS      5000   // read sensor every 5 seconds
 

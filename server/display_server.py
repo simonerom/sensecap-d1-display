@@ -8,6 +8,7 @@ Spec version: 1.0.0
 import json
 import re
 import subprocess
+import threading
 import urllib.request
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -58,6 +59,37 @@ TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
 DAYS_IT   = ["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"]
+
+# ─── Background cache ─────────────────────────────────────────────────────────
+_cache_lock = threading.Lock()
+_cached_data = None
+_cache_ts    = 0
+CACHE_TTL    = 60  # seconds
+
+def _refresh_cache():
+    global _cached_data, _cache_ts
+    try:
+        data = build_data()
+        data["alert_visible"] = "true" if data["alert"] else "false"
+        with _cache_lock:
+            _cached_data = data
+            _cache_ts    = datetime.now(TZ).timestamp()
+    except Exception as e:
+        print(f"[cache] refresh error: {e}")
+
+def _schedule_refresh():
+    t = threading.Thread(target=_refresh_loop, daemon=True)
+    t.start()
+
+def _refresh_loop():
+    import time
+    while True:
+        _refresh_cache()
+        time.sleep(CACHE_TTL)
+
+def get_cached_data():
+    with _cache_lock:
+        return _cached_data
 MONTHS_IT = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno",
              "Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"]
 
@@ -530,9 +562,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if self.path == "/data.json":
             print(f"[{ts}] GET /data.json")
-            data = build_data()
-            # Add alert_visible for firmware
-            data["alert_visible"] = "true" if data["alert"] else "false"
+            data = get_cached_data()
+            if data is None:
+                _refresh_cache()
+                data = get_cached_data()
             self.send_json(data)
 
         elif self.path == "/layout.xml":
@@ -560,6 +593,7 @@ if __name__ == "__main__":
     print(f"   http://0.0.0.0:{PORT}/layout.xml")
     print(f"   http://0.0.0.0:{PORT}/health")
     print(f"   Ctrl+C to stop\n")
+    _schedule_refresh()  # start background cache refresh
     try:
         server.serve_forever()
     except KeyboardInterrupt:
