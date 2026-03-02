@@ -16,9 +16,27 @@ import caldav
 import pytz
 
 
+# Emoji → monochrome Unicode substitution map
+EMOJI_MONO = {
+    "☀️": "☀", "🌤️": "☁", "⛅": "☁", "🌥️": "☁", "🌦️": "☁",
+    "🌧️": "☁", "🌨️": "☁", "🌩️": "⚡", "⛈️": "⚡", "🌪️": "~",
+    "🌡️": "▲", "💧": "~", "❄️": "*", "🌈": "~",
+    "📰": "≡", "📅": "◉", "📆": "◉", "🗓️": "◉",
+    "💰": "$", "💵": "$", "💶": "$", "📈": "▲", "📉": "▼",
+    "⭐": "★", "🌟": "★", "✨": "★", "💡": "★",
+    "⚠️": "⚠", "❗": "!", "❕": "!", "🔴": "(!)",
+    "🌍": "◆", "🌎": "◆", "🌏": "◆", "🗺️": "◆",
+    "👋": "", "🙌": "", "👍": "", "🎉": "",
+    "🚇": "▶", "🚌": "▶", "🚗": "▶", "✈️": "»",
+    "🧠": "", "🤔": "",
+}
+
 def strip_emoji(text):
-    """Remove emoji and non-latin characters, keep ASCII + accented latin."""
+    """Replace known emoji with monochrome symbols, drop the rest."""
     import unicodedata
+    # Apply substitution map first
+    for emoji, mono in EMOJI_MONO.items():
+        text = text.replace(emoji, mono)
     result = []
     for ch in text:
         cat = unicodedata.category(ch)
@@ -365,30 +383,30 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </card>
     <row gap="12" pad="12">
       <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="~ Interno" font="13" color="#666666" align="center"/>
+        <label text="▲ Interno" font="13" color="#666666" align="center"/>
         <label text="{indoor_temp}" font="28" color="#00A885" align="center" bold="true"/>
         <label text="{indoor_hum}" font="13" color="#888888" align="center"/>
       </card>
       <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="* Esterno" font="13" color="#666666" align="center"/>
+        <label text="☁ Esterno" font="13" color="#666666" align="center"/>
         <label text="{outdoor_temp}" font="28" color="#2B7DE9" align="center" bold="true"/>
         <label text="{outdoor_hum}" font="13" color="#888888" align="center"/>
       </card>
     </row>
     <card bg="#FFFFFF" radius="16" pad="16" w="100%" scroll="true">
-      <label text=">> Aggiornamenti" font="18" color="#1A1A2E" bold="true"/>
+      <label text="★ Aggiornamenti" font="18" color="#1A1A2E" bold="true"/>
       <label text="{message}" font="15" color="#444444" max_lines="0"/>
-      <label text=">> Curiosita" font="18" color="#1A1A2E" bold="true"/>
+      <label text="◆ Curiosita" font="18" color="#1A1A2E" bold="true"/>
       <label text="{curiosity}" font="14" color="#555555"/>
       <label text="$ Mercati" font="18" color="#1A1A2E" bold="true"/>
       <crypto_row symbol="{btc_symbol}" price="{btc_price}" change="{btc_change}" trend="{btc_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{eth_symbol}" price="{eth_price}" change="{eth_change}" trend="{eth_trend}" up_color="#00A885" down_color="#E53935"/>
       <crypto_row symbol="{iotx_symbol}" price="{iotx_price}" change="{iotx_change}" trend="{iotx_trend}" up_color="#00A885" down_color="#E53935"/>
-      <label text="## Notizie" font="18" color="#1A1A2E" bold="true"/>
+      <label text="≡ Notizie" font="18" color="#1A1A2E" bold="true"/>
       <list items="{news}" font="14" color="#333333" divider="#DDDDDD" max_lines="2"/>
     </card>
     <card bg="#E53935" radius="12" pad="12" w="100%" visible="{alert_visible}">
-      <label text="(!) {alert}" font="16" color="#FFFFFF" align="center"/>
+      <label text="⚠ {alert}" font="16" color="#FFFFFF" align="center"/>
     </card>
   </screen>
 
@@ -396,17 +414,17 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <calendar_grid year="{cal_year}" month="{cal_month}" today="{cal_today}"
       highlight_color="#00A885" text_color="#1A1A2E" header_color="#888888"/>
     <card bg="#FFFFFF" radius="16" pad="16" w="100%" scroll="true">
-      <label text="[ Prossimi eventi ]" font="18" color="#1A1A2E" bold="true"/>
+      <label text="◉ Prossimi eventi" font="18" color="#1A1A2E" bold="true"/>
       <events_list items="{events}" font="15" color="#1A1A2E" date_color="#00A885"/>
     </card>
     <row gap="12" pad="12">
       <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="~ Interno" font="13" color="#666666" align="center"/>
+        <label text="▲ Interno" font="13" color="#666666" align="center"/>
         <label text="{indoor_temp}" font="24" color="#00A885" align="center" bold="true"/>
         <label text="{indoor_hum}" font="13" color="#888888" align="center"/>
       </card>
       <card flex="1" bg="#FFFFFF" radius="16" pad="12">
-        <label text="* Esterno" font="13" color="#666666" align="center"/>
+        <label text="☁ Esterno" font="13" color="#666666" align="center"/>
         <label text="{outdoor_temp}" font="24" color="#2B7DE9" align="center" bold="true"/>
         <label text="{outdoor_hum}" font="13" color="#888888" align="center"/>
       </card>
@@ -418,12 +436,12 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <label text="{weekday} {day} {month}" font="20" color="#666666" align="center"/>
     <row gap="12" pad="16">
       <card flex="1" bg="#FFFFFF" radius="16" pad="16">
-        <label text="~ Interno" font="13" color="#666666" align="center"/>
+        <label text="▲ Interno" font="13" color="#666666" align="center"/>
         <label text="{indoor_temp}" font="32" color="#00A885" align="center" bold="true"/>
         <label text="{indoor_hum}" font="16" color="#888888" align="center"/>
       </card>
       <card flex="1" bg="#FFFFFF" radius="16" pad="16">
-        <label text="* Esterno" font="13" color="#666666" align="center"/>
+        <label text="☁ Esterno" font="13" color="#666666" align="center"/>
         <label text="{outdoor_temp}" font="32" color="#2B7DE9" align="center" bold="true"/>
         <label text="{condition}" font="13" color="#888888" align="center"/>
       </card>
