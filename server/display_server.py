@@ -292,41 +292,38 @@ def _get_scioperi_summary():
         MONTHS_IT = ["","gennaio","febbraio","marzo","aprile","maggio","giugno",
                      "luglio","agosto","settembre","ottobre","novembre","dicembre"]
 
-        # Find rows: date + sector + who + duration + scope
-        pattern = r"(\d{2}/\d{2}/\d{4})\s+\1\s+[^\d]{5,80?}?(Trasporto pubblico locale|Generale|Ferroviario|Aereo)[^\d]{0,200?}?(\d{1,2} ORE|INTERA GIORNATA|ORE \d|\d ORE)"
-        entries = re.findall(
-            r"(\d{2}/\d{2}/\d{4})\s+\1\s+([\w\s\-/]+?)\s+(Trasporto pubblico locale|Generale|Ferroviario|Aereo)\s+([\w\s\(\)\.,:]+?)\s+(\d+ ORE|INTERA GIORNATA|[\d\.]+ ORE: [^\s]+)",
-            text)
+        # Parse blocks: each entry starts with a date repeated twice
+        blocks = re.split(r"(?=\d{2}/\d{2}/\d{4}\s+\d{2}/\d{2}/\d{4})", text)
 
         hits = []
         seen = set()
-        for m in entries:
-            date_str, union, sector, who, duration = m
+        for block in blocks:
+            date_m = re.match(r"(\d{2}/\d{2}/\d{4})", block)
+            if not date_m: continue
             try:
+                date_str = date_m.group(1)
                 d, mo, y = int(date_str[:2]), int(date_str[3:5]), int(date_str[6:])
                 ev_date = _date(y, mo, d)
             except: continue
             if ev_date <= today: continue
-
             date_it = f"{d} {MONTHS_IT[mo]}"
-            who_up = who.upper()
+            bu = block.upper()
 
-            is_atm_milan = "ATM" in who_up and ("MILANO" in who_up or "MILAN" in who_up or sector == "Trasporto pubblico locale")
-            is_general = sector == "Generale" and "ESCLUSIONE" not in who_up and "ESCLUSO" not in who_up
-
-            if is_atm_milan:
-                dur = duration.strip()
-                if "INTERA" in dur or "24" in dur: dur_str = "24h"
-                else:
-                    m2 = re.match(r"(\d+) ORE", dur)
-                    dur_str = f"{m2.group(1)}h" if m2 else dur[:10]
-                line = f"{date_it}: ATM Milano - {dur_str}"
-            elif is_general:
+            # ATM Milano
+            if "ATM" in bu and ("MILANO" in bu or "GRUPPO ATM" in bu):
+                dur_m = re.search(r"(\d+) ORE|INTERA GIORNATA", bu)
+                dur_str = "24h" if dur_m and ("24" in dur_m.group(0) or "INTERA" in dur_m.group(0)) else \
+                          (f"{dur_m.group(1)}h" if dur_m else "")
+                line = f"{date_it}: ATM Milano - {dur_str}".rstrip(" -")
+            # Sciopero generale (che include trasporti)
+            elif "GENERALE" in bu and "ESCLUSIONE" not in bu and "ESCLUSO" not in bu and "TRASPORT" not in bu:
                 line = f"{date_it}: sciopero generale"
-            elif sector == "Ferroviario" and "NAZIONALE" in text[text.find(date_str):text.find(date_str)+200].upper():
-                line = f"{date_it}: treni"
-            elif sector == "Aereo":
-                line = f"{date_it}: aerei"
+            elif re.search(r"FERROVI|NTV|TRENITALIA|TRENORD", bu):
+                if "NAZIONALE" in bu: line = f"{date_it}: treni"
+                else: continue
+            elif "AEREO" in bu or "AIRWAYS" in bu or "HANDLING" in bu:
+                if "NAZIONALE" in bu: line = f"{date_it}: aerei"
+                else: continue
             else:
                 continue
 
@@ -335,7 +332,19 @@ def _get_scioperi_summary():
                 hits.append((ev_date, line))
 
         hits.sort(key=lambda x: x[0])
-        return [h[1] for h in hits[:4]]
+        # Always include ATM + first of each other category (max 5 total)
+        atm = [(d,l) for d,l in hits if "ATM" in l]
+        others = [(d,l) for d,l in hits if "ATM" not in l]
+        # Deduplicate others by category, keep earliest
+        cat_seen = set()
+        others_dedup = []
+        for d,l in others:
+            cat = l.split(":")[-1].strip()
+            if cat not in cat_seen:
+                cat_seen.add(cat)
+                others_dedup.append((d,l))
+        combined = sorted(atm + others_dedup, key=lambda x: x[0])
+        return [h[1] for h in combined[:5]]
     except Exception as e:
         return []
 
