@@ -49,6 +49,7 @@ enum class UiCmdType : uint8_t {
 struct UiCommand {
     UiCmdType type;
     float     f0 = 0, f1 = 0;    // sensor: temp, hum
+    float     f2 = 0, f3 = 0;    // sensor: tvoc (raw), co2 (ppm)
     bool      b0 = false;         // sensor: ok flag / overlay: show dismiss btn
     char      str[80] = {};       // error msg / ssid
     DataPayload* dataPtr = nullptr; // heap-alloc DataPayload (type==DataUpdate) — freed after use
@@ -81,7 +82,7 @@ public:
     // Thread-safe post methods (called from taskNetwork / taskSensor, Core 0).
     // They enqueue a UiCommand; actual LVGL calls happen in tick().
     void postDataUpdate(DataPayload* payload);   // caller heap-allocs; SM frees after apply
-    void postSensorUpdate(float temp, float hum, bool ok);
+    void postSensorUpdate(float temp, float hum, bool ok, float tvoc = 0, float co2 = 0);
     void postRebuildLayout(char* xml, size_t len); // caller ps_malloc's; SM ps_free's after build
     void postShowConnecting(const String& ssid);
     void postShowError(const String& msg);
@@ -139,6 +140,7 @@ private:
     // ---- RTC timer ----
     lv_timer_t* _rtcTimer    = nullptr;
     lv_timer_t* _minuteTimer = nullptr;
+    lv_timer_t* _secondTimer = nullptr;
     int8_t      _tzOffset    = 0;
 
     // ---- FreeRTOS queue ----
@@ -164,5 +166,6 @@ private:
 
     static void _rtcTimerCb(lv_timer_t* t);
     static void _minuteTimerCb(lv_timer_t* t);
+    static void _secondTimerCb(lv_timer_t* t);
     static void _onOverlayDismiss(lv_event_t* e);
 };

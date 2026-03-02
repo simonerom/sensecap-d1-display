@@ -42,6 +42,7 @@ void ScreenManager::init(std::function<void(const AppSettings&)>      onSettings
     // RTC timers (LVGL timers run on UI task)
     _rtcTimer    = lv_timer_create(_rtcTimerCb,    1000, this);
     _minuteTimer = lv_timer_create(_minuteTimerCb, 60000, this);
+    _secondTimer = lv_timer_create(_secondTimerCb, 1000, this);
 
     // Trigger immediately to populate time placeholders before first screen shows
     _engine.updateRtc(_tzOffset);
@@ -149,7 +150,7 @@ void ScreenManager::buildFallback(const char* errorMsg) {
     }
 
     _screensBuilt = true;
-    _navigateTo(PageId::Settings, false);
+    _navigateTo(PageId::Home, false);
 }
 
 // =============================================================================
@@ -189,10 +190,11 @@ void ScreenManager::postDataUpdate(DataPayload* payload) {
     xQueueSend(_queue, &cmd, 0);
 }
 
-void ScreenManager::postSensorUpdate(float temp, float hum, bool ok) {
+void ScreenManager::postSensorUpdate(float temp, float hum, bool ok, float tvoc, float co2) {
     UiCommand cmd;
     cmd.type = UiCmdType::SensorUpdate;
     cmd.f0 = temp; cmd.f1 = hum; cmd.b0 = ok;
+    cmd.f2 = tvoc; cmd.f3 = co2;
     xQueueSend(_queue, &cmd, 0);
 }
 
@@ -268,7 +270,7 @@ void ScreenManager::_processQueue() {
             break;
 
         case UiCmdType::SensorUpdate:
-            _engine.updateSensor(cmd.f0, cmd.f1, cmd.b0);
+            _engine.updateSensor(cmd.f0, cmd.f1, cmd.b0, cmd.f2, cmd.f3);
             break;
 
         case UiCmdType::RebuildLayout:
@@ -334,7 +336,8 @@ void ScreenManager::_processGesture() {
                 // Horizontal swipe
                 if (_swipeAccX < 0) {
                     // Swipe left (finger moved left) → go to next page (right)
-                    if      (_currentPage == PageId::Home)     _navigateTo(PageId::Calendar);
+                    if      (_currentPage == PageId::Settings) _navigateTo(PageId::Home);
+                    else if (_currentPage == PageId::Home)     _navigateTo(PageId::Calendar);
                     else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Clock);
                 } else {
                     // Swipe right (finger moved right) → go to previous page (left)
@@ -467,4 +470,9 @@ void ScreenManager::_minuteTimerCb(lv_timer_t* t) {
 void ScreenManager::_onOverlayDismiss(lv_event_t* e) {
     ScreenManager* self = (ScreenManager*)lv_event_get_user_data(e);
     if (self) self->_hideOverlay();
+}
+
+void ScreenManager::_secondTimerCb(lv_timer_t* t) {
+    auto* self = static_cast<ScreenManager*>(t->user_data);
+    if (self) self->_engine.updateRtc(self->_tzOffset);
 }

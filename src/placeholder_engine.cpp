@@ -71,10 +71,12 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
     struct tm t;
     gmtime_r(&now, &t);
 
-    // {time} HH:MM
+    // {time} HH:MM and {time_sec} HH:MM:SS
     char buf[32];
     snprintf(buf, sizeof(buf), "%02d:%02d", t.tm_hour, t.tm_min);
     setValue("time", buf);
+    snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
+    setValue("time_sec", buf);
 
     // {date} "3 Mar"
     static const char* months[] = {
@@ -109,18 +111,36 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
 // =============================================================================
 // Sensor update
 // =============================================================================
-void PlaceholderEngine::updateSensor(float tempC, float humPct, bool ok) {
-    // Sanity check: -45°C is SHT40 error sentinel, treat as not ok
+void PlaceholderEngine::updateSensor(float tempC, float humPct, bool ok, float tvoc, float co2) {
+    char buf[24];
+
+    // T/H: sanity check (-40..85°C)
     if (!ok || tempC < -40.0f || tempC > 85.0f || humPct < 0.0f || humPct > 100.0f) {
-        setValue("indoor_temp", "--°C");
-        setValue("indoor_hum",  "--%");
-        return;
+        setValue("indoor_temp", "--");
+        setValue("indoor_hum",  "--");
+    } else {
+        snprintf(buf, sizeof(buf), "%.1f", tempC);
+        setValue("indoor_temp", buf);
+        snprintf(buf, sizeof(buf), "%.0f%%", humPct);
+        setValue("indoor_hum", buf);
     }
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%.1f°C", tempC);
-    setValue("indoor_temp", buf);
-    snprintf(buf, sizeof(buf), "%.0f%%", humPct);
-    setValue("indoor_hum", buf);
+
+    // tVOC index from RP2040 — matches {voc} placeholder in layout
+    if (tvoc <= 0) {
+        setValue("voc", "--");
+    } else {
+        snprintf(buf, sizeof(buf), "%.0f", tvoc);
+        setValue("voc", buf);
+    }
+
+    // CO2 from SCD41 via RP2040 — matches {co2} placeholder in layout
+    if (co2 <= 0) {
+        setValue("co2", "--");
+    } else {
+        snprintf(buf, sizeof(buf), "%.0f", co2);
+        setValue("co2", buf);
+    }
+    setValue("co2_unit", co2 > 0 ? "ppm" : "");
 }
 
 // =============================================================================
