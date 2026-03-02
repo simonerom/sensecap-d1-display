@@ -521,7 +521,9 @@ def build_data():
     for day_num in range(1, 32):
         try:
             dt = datetime(now.year, now.month, day_num).date()
-            if is_italian_holiday(dt) and dt.weekday() < 6:
+            is_sunday = (dt.weekday() == 6)
+            is_weekday_hol = is_italian_holiday(dt) and dt.weekday() < 5
+            if is_sunday or is_weekday_hol:
                 hol_days.add(day_num)
         except Exception:
             pass
