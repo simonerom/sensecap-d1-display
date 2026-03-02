@@ -46,6 +46,9 @@ LV_FONT_DECLARE(lv_font_montserrat_28_latin)
 LV_FONT_DECLARE(lv_font_montserrat_32_latin)
 LV_FONT_DECLARE(lv_font_montserrat_48_latin)
 
+LV_FONT_DECLARE(lv_font_montserrat_64_latin);
+LV_FONT_DECLARE(lv_font_montserrat_96_latin);
+
 inline const lv_font_t* lv_hlp_font(int size) {
     if (size <= 12) return &lv_font_montserrat_12_latin;
     if (size <= 14) return &lv_font_montserrat_14_latin;
@@ -55,7 +58,8 @@ inline const lv_font_t* lv_hlp_font(int size) {
     if (size <= 28) return &lv_font_montserrat_28_latin;
     if (size <= 32) return &lv_font_montserrat_32_latin;
     if (size <= 48) return &lv_font_montserrat_48_latin;
-    return &lv_font_montserrat_48_latin;
+    if (size <= 64) return &lv_font_montserrat_64_latin;
+    return &lv_font_montserrat_96_latin;
 }
 
 // =============================================================================
