@@ -346,7 +346,11 @@ def _get_scioperi_summary():
             if cat not in cat_seen and line not in seen:
                 cat_seen.add(cat); seen.add(line); result.append(line)
         result.sort(key=lambda l: next((ev_date for ev_date,ln in hits if ln==l), _date(2099,1,1)))
-        return result[:5]
+        if result:
+            return result[:5]
+        # Fallback: Google News RSS titles
+        fallback = _fetch_rss("https://news.google.com/rss/search?q=sciopero+ATM+Milano+metro&hl=it&gl=IT&ceid=IT:it", skip=2, limit=3)
+        return [strip_emoji(t[:80]) for t in fallback if any(w in t.lower() for w in ["atm","metro","sciopero"])][:3]
     except Exception as e:
         return []
 
