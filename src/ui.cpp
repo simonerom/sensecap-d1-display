@@ -307,29 +307,57 @@ static void ft5x06_write_reg(uint8_t reg, uint8_t val) {
 
 static bool _touch_ok = false;  // set to true only if chip probe succeeds
 
-static bool ft5x06_read_touch(uint16_t *x, uint16_t *y) {
+// Touch calibration coefficients (updated by applyCalibration / _finishCalibration)
+// Maps raw [_cal_x0.._cal_x1] -> [0..SCREEN_WIDTH-1], same for Y
+static int16_t _cal_x0 = 0,   _cal_x1 = SCREEN_WIDTH  - 1;
+static int16_t _cal_y0 = 0,   _cal_y1 = SCREEN_HEIGHT - 1;
+static bool    _cal_valid = false;
+
+// Raw read without any calibration — used during calibration procedure itself
+static bool ft5x06_read_raw(uint16_t *rx, uint16_t *ry) {
     if (!_touch_ok) return false;
     uint8_t num = ft5x06_read_reg(FT5X06_REG_NUMTOUCH) & 0x0F;
     if (num == 0 || num > 5) return false;
-
-    // Read 4 bytes: XH, XL, YH, YL
     Wire.beginTransmission(FT5X06_ADDR);
     Wire.write(FT5X06_REG_TOUCH1_XH);
     Wire.endTransmission(false);
     Wire.requestFrom((uint8_t)FT5X06_ADDR, (uint8_t)4);
     if (Wire.available() < 4) return false;
-
     uint8_t xh = Wire.read();
     uint8_t xl = Wire.read();
     uint8_t yh = Wire.read();
     uint8_t yl = Wire.read();
+    *rx = ((xh & 0x0F) << 8) | xl;
+    *ry = ((yh & 0x0F) << 8) | yl;
+    return true;
+}
 
-    uint16_t rx = ((xh & 0x0F) << 8) | xl;
-    uint16_t ry = ((yh & 0x0F) << 8) | yl;
+static bool ft5x06_read_touch(uint16_t *x, uint16_t *y) {
+    uint16_t rx, ry;
+    if (!ft5x06_read_raw(&rx, &ry)) return false;
 
-    // Mirror for 180° display rotation
-    *x = (SCREEN_WIDTH  - 1) - rx;
-    *y = (SCREEN_HEIGHT - 1) - ry;
+    // Mirror for 180° display rotation, then apply calibration
+    int32_t mx = (SCREEN_WIDTH  - 1) - (int32_t)rx;
+    int32_t my = (SCREEN_HEIGHT - 1) - (int32_t)ry;
+
+    if (_cal_valid) {
+        // Linear map: [x0..x1] -> [0..SCREEN_WIDTH-1]
+        int32_t range_x = _cal_x1 - _cal_x0;
+        int32_t range_y = _cal_y1 - _cal_y0;
+        if (range_x != 0)
+            mx = (mx - _cal_x0) * (SCREEN_WIDTH  - 1) / range_x;
+        if (range_y != 0)
+            my = (my - _cal_y0) * (SCREEN_HEIGHT - 1) / range_y;
+    }
+
+    // Clamp
+    if (mx < 0) mx = 0;
+    if (mx >= SCREEN_WIDTH)  mx = SCREEN_WIDTH  - 1;
+    if (my < 0) my = 0;
+    if (my >= SCREEN_HEIGHT) my = SCREEN_HEIGHT - 1;
+
+    *x = (uint16_t)mx;
+    *y = (uint16_t)my;
     return true;
 }
 
@@ -420,8 +448,11 @@ UIManager::UIManager()
       _activeTA(nullptr),
       _overlayScreen(nullptr), _spinnerOverlay(nullptr), _lblOverlayMsg(nullptr), _btnOverlayDismiss(nullptr),
       _dotContainer(nullptr), _btnGear(nullptr),
-      _currentPage(0), _overlayVisible(false), _settingsCallback(nullptr) {
+      _calScreen(nullptr), _calCrosshair(nullptr), _calInstruction(nullptr),
+      _calProgress(nullptr), _calBtnSkip(nullptr), _calStep(0),
+      _currentPage(0), _overlayVisible(false), _settingsCallback(nullptr), _calDoneCallback(nullptr) {
     for (int i = 0; i < PAGE_COUNT; i++) _dots[i] = nullptr;
+    for (int i = 0; i < CAL_POINT_COUNT; i++) { _calRawX[i] = 0; _calRawY[i] = 0; }
 }
 
 // =============================================================================
@@ -443,8 +474,10 @@ void UIManager::_applyDarkTheme() {
 // =============================================================================
 // init
 // =============================================================================
-void UIManager::init(void (*settingsCallback)(const AppSettings&)) {
+void UIManager::init(void (*settingsCallback)(const AppSettings&),
+                     void (*calDoneCallback)(const TouchCalibration&)) {
     _settingsCallback = settingsCallback;
+    _calDoneCallback  = calDoneCallback;
     _applyDarkTheme();
 
     lv_obj_t* screen = lv_scr_act();
@@ -479,6 +512,7 @@ void UIManager::init(void (*settingsCallback)(const AppSettings&)) {
     _createNavDots(screen);
     _createGearButton(screen);
     _createOverlay();
+    _createCalibrationScreen();
 
     lv_obj_add_event_cb(_tabview, _onTabChanged, LV_EVENT_VALUE_CHANGED, this);
     _updateNavDots(0);
@@ -757,6 +791,17 @@ void UIManager::_createPage3(lv_obj_t* parent) {
     lv_obj_set_style_text_font(lblSave, &lv_font_montserrat_14, 0);
     lv_obj_center(lblSave);
 
+    // ---- Calibrate Touch button ----
+    lv_obj_t* btnCal = lv_btn_create(parent);
+    lv_obj_set_size(btnCal, 160, 40);
+    lv_obj_align(btnCal, LV_ALIGN_TOP_LEFT, 0, 135);
+    lv_obj_set_style_bg_color(btnCal, hex2color(0x334466), 0);
+    lv_obj_add_event_cb(btnCal, _onCalibrateClicked, LV_EVENT_SHORT_CLICKED, this);
+    lv_obj_t* lblCal = lv_label_create(btnCal);
+    lv_label_set_text(lblCal, LV_SYMBOL_EDIT "  Calibrate Touch");
+    lv_obj_set_style_text_font(lblCal, &lv_font_montserrat_14, 0);
+    lv_obj_center(lblCal);
+
     // ---- Fullscreen keyboard panel (hidden initially) ----
     // Layout: [field label 24px] [preview textarea 52px] [keyboard 260px] = 336px
     // Panel slides up from bottom over the entire screen
@@ -942,6 +987,205 @@ void UIManager::goToSettings() {
         lv_tabview_set_act(_tabview, 2, LV_ANIM_ON);
         _updateNavDots(2);
     }
+}
+
+// =============================================================================
+// Touch calibration
+// =============================================================================
+
+// Target positions for each calibration step (in screen coords, with margin)
+static const struct { int16_t x; int16_t y; } CAL_TARGETS[CAL_POINT_COUNT] = {
+    { 30,  30  },   // 0: Top-Left
+    { 450, 30  },   // 1: Top-Right
+    { 30,  450 },   // 2: Bottom-Left
+    { 450, 450 },   // 3: Bottom-Right
+    { 240, 240 },   // 4: Centre
+};
+
+static const char* CAL_LABELS[CAL_POINT_COUNT] = {
+    "Top-Left",
+    "Top-Right",
+    "Bottom-Left",
+    "Bottom-Right",
+    "Centre",
+};
+
+void UIManager::applyCalibration(const TouchCalibration& cal) {
+    if (!cal.valid) return;
+    _cal_x0    = cal.x0;
+    _cal_x1    = cal.x1;
+    _cal_y0    = cal.y0;
+    _cal_y1    = cal.y1;
+    _cal_valid = true;
+    DEBUG_PRINTF("[UI] Calibration applied: x=[%d..%d] y=[%d..%d]\n",
+                 _cal_x0, _cal_x1, _cal_y0, _cal_y1);
+}
+
+void UIManager::_createCalibrationScreen() {
+    _calScreen = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(_calScreen, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(_calScreen, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_bg_color(_calScreen, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(_calScreen, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(_calScreen, 0, 0);
+    lv_obj_set_style_radius(_calScreen, 0, 0);
+    lv_obj_clear_flag(_calScreen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(_calScreen, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(_calScreen, _onCalTap, LV_EVENT_SHORT_CLICKED, this);
+
+    // Title
+    lv_obj_t* title = lv_label_create(_calScreen);
+    lv_label_set_text(title, "TOUCH CALIBRATION");
+    lv_obj_set_style_text_color(title, lv_color_white(), 0);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 8);
+
+    // Progress label
+    _calProgress = lv_label_create(_calScreen);
+    lv_label_set_text(_calProgress, "Step 1 / 5");
+    lv_obj_set_style_text_color(_calProgress, hex2color(COLOR_TEXT_SECONDARY), 0);
+    lv_obj_set_style_text_font(_calProgress, &lv_font_montserrat_12, 0);
+    lv_obj_align(_calProgress, LV_ALIGN_TOP_MID, 0, 28);
+
+    // Instruction label
+    _calInstruction = lv_label_create(_calScreen);
+    lv_label_set_text(_calInstruction, "Tap the crosshair");
+    lv_obj_set_style_text_color(_calInstruction, hex2color(COLOR_TEXT_PRIMARY), 0);
+    lv_obj_set_style_text_font(_calInstruction, &lv_font_montserrat_18, 0);
+    lv_obj_align(_calInstruction, LV_ALIGN_BOTTOM_MID, 0, -56);
+
+    // Crosshair (large + symbol)
+    _calCrosshair = lv_label_create(_calScreen);
+    lv_label_set_text(_calCrosshair, "+");
+    lv_obj_set_style_text_color(_calCrosshair, hex2color(COLOR_ACCENT), 0);
+    lv_obj_set_style_text_font(_calCrosshair, &lv_font_montserrat_48, 0);
+    lv_obj_align(_calCrosshair, LV_ALIGN_TOP_LEFT,
+                 CAL_TARGETS[0].x - 20, CAL_TARGETS[0].y - 30);
+
+    // Skip button
+    _calBtnSkip = lv_btn_create(_calScreen);
+    lv_obj_set_size(_calBtnSkip, 120, 36);
+    lv_obj_align(_calBtnSkip, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_bg_color(_calBtnSkip, hex2color(0x555555), 0);
+    lv_obj_add_event_cb(_calBtnSkip, _onCalSkip, LV_EVENT_SHORT_CLICKED, this);
+    lv_obj_t* lblSkip = lv_label_create(_calBtnSkip);
+    lv_label_set_text(lblSkip, "Skip");
+    lv_obj_set_style_text_font(lblSkip, &lv_font_montserrat_14, 0);
+    lv_obj_center(lblSkip);
+
+    lv_obj_add_flag(_calScreen, LV_OBJ_FLAG_HIDDEN);
+}
+
+void UIManager::startCalibration() {
+    if (!_calScreen) return;
+    _calStep = 0;
+    // Disable calibration during procedure (use raw mirrored coords)
+    _cal_valid = false;
+
+    // Show step 0
+    char buf[24];
+    snprintf(buf, sizeof(buf), "Step 1 / %d", CAL_POINT_COUNT);
+    lv_label_set_text(_calProgress, buf);
+    lv_label_set_text(_calInstruction, CAL_LABELS[0]);
+    lv_obj_align(_calCrosshair, LV_ALIGN_TOP_LEFT,
+                 CAL_TARGETS[0].x - 20, CAL_TARGETS[0].y - 30);
+
+    lv_obj_clear_flag(_calScreen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(_calScreen);
+}
+
+void UIManager::_advanceCalStep() {
+    _calStep++;
+    if (_calStep >= CAL_POINT_COUNT) {
+        _finishCalibration();
+        return;
+    }
+    char buf[24];
+    snprintf(buf, sizeof(buf), "Step %d / %d", _calStep + 1, CAL_POINT_COUNT);
+    lv_label_set_text(_calProgress, buf);
+    lv_label_set_text(_calInstruction, CAL_LABELS[_calStep]);
+    lv_obj_align(_calCrosshair, LV_ALIGN_TOP_LEFT,
+                 CAL_TARGETS[_calStep].x - 20, CAL_TARGETS[_calStep].y - 30);
+}
+
+void UIManager::_finishCalibration() {
+    // Use TL and BR points to compute affine map (screen-space after mirror):
+    //   TL target = (30, 30)    raw-mirrored = _calRawX[0], _calRawY[0]
+    //   BR target = (450, 450)  raw-mirrored = _calRawX[3], _calRawY[3]
+    int16_t tl_rx = _calRawX[0], tl_ry = _calRawY[0];
+    int16_t br_rx = _calRawX[3], br_ry = _calRawY[3];
+
+    // Avoid division by zero
+    if (br_rx == tl_rx || br_ry == tl_ry) {
+        DEBUG_PRINTLN("[Cal] Invalid calibration data (same raw values), skipping.");
+        lv_obj_add_flag(_calScreen, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+
+    // scale so that tl_rx -> 30 and br_rx -> 450 in LVGL space
+    // We actually store the raw extents that map to [0..479]:
+    //   raw at pixel 0   = tl_rx - 30 * (br_rx - tl_rx) / (450 - 30)
+    //   raw at pixel 479 = tl_rx + (479 - 30) * (br_rx - tl_rx) / (450 - 30)
+    int32_t range_px_x = CAL_TARGETS[3].x - CAL_TARGETS[0].x;  // 420
+    int32_t range_px_y = CAL_TARGETS[3].y - CAL_TARGETS[0].y;  // 420
+    int32_t range_raw_x = br_rx - tl_rx;
+    int32_t range_raw_y = br_ry - tl_ry;
+
+    TouchCalibration cal;
+    cal.x0 = (int16_t)(tl_rx - (int32_t)CAL_TARGETS[0].x * range_raw_x / range_px_x);
+    cal.x1 = (int16_t)(cal.x0 + (SCREEN_WIDTH  - 1) * range_raw_x / range_px_x);
+    cal.y0 = (int16_t)(tl_ry - (int32_t)CAL_TARGETS[0].y * range_raw_y / range_px_y);
+    cal.y1 = (int16_t)(cal.y0 + (SCREEN_HEIGHT - 1) * range_raw_y / range_px_y);
+    cal.valid = true;
+
+    DEBUG_PRINTF("[Cal] Done: x=[%d..%d] y=[%d..%d]\n", cal.x0, cal.x1, cal.y0, cal.y1);
+
+    // Apply immediately
+    _cal_x0 = cal.x0; _cal_x1 = cal.x1;
+    _cal_y0 = cal.y0; _cal_y1 = cal.y1;
+    _cal_valid = true;
+
+    // Persist via callback
+    if (_calDoneCallback) _calDoneCallback(cal);
+
+    lv_obj_add_flag(_calScreen, LV_OBJ_FLAG_HIDDEN);
+}
+
+void UIManager::_onCalTap(lv_event_t* e) {
+    UIManager* self = (UIManager*)lv_event_get_user_data(e);
+    if (!self || self->_calStep >= CAL_POINT_COUNT) return;
+
+    // Read raw (mirrored) coordinate — calibration is disabled, so ft5x06_read_touch gives mirrored raw
+    uint16_t x, y;
+    if (!ft5x06_read_touch(&x, &y)) {
+        // Fallback: use LVGL indev last point
+        lv_indev_t* indev = lv_indev_get_act();
+        if (!indev) return;
+        lv_point_t pt;
+        lv_indev_get_point(indev, &pt);
+        x = pt.x; y = pt.y;
+    }
+
+    int step = self->_calStep;
+    self->_calRawX[step] = (int16_t)x;
+    self->_calRawY[step] = (int16_t)y;
+    DEBUG_PRINTF("[Cal] Step %d (%s): raw x=%d y=%d\n",
+                 step, CAL_LABELS[step], x, y);
+
+    self->_advanceCalStep();
+}
+
+void UIManager::_onCalSkip(lv_event_t* e) {
+    UIManager* self = (UIManager*)lv_event_get_user_data(e);
+    if (!self || !self->_calScreen) return;
+    _cal_valid = false;  // leave uncalibrated
+    lv_obj_add_flag(self->_calScreen, LV_OBJ_FLAG_HIDDEN);
+    DEBUG_PRINTLN("[Cal] Skipped.");
+}
+
+void UIManager::_onCalibrateClicked(lv_event_t* e) {
+    UIManager* self = (UIManager*)lv_event_get_user_data(e);
+    if (self) self->startCalibration();
 }
 
 // =============================================================================

@@ -5,6 +5,9 @@
 #include "settings_manager.h"
 #include "../include/config.h"
 
+// Number of calibration points
+#define CAL_POINT_COUNT 5
+
 // =============================================================================
 // UIManager - 3-page LVGL UI with horizontal swipe
 //
@@ -19,7 +22,9 @@ public:
 
     // Initialize LVGL and build all pages.
     // settingsCallback is called when user taps Save on Page 3.
-    void init(void (*settingsCallback)(const AppSettings&) = nullptr);
+    // calDoneCallback is called when touch calibration completes.
+    void init(void (*settingsCallback)(const AppSettings&) = nullptr,
+              void (*calDoneCallback)(const TouchCalibration&) = nullptr);
 
     // Update display with new server/sensor data (call from network task under mutex)
     void updateData(const DisplayData& data);
@@ -38,6 +43,12 @@ public:
 
     // Navigate to settings page (page index 2)
     void goToSettings();
+
+    // Open the fullscreen touch calibration screen
+    void startCalibration();
+
+    // Apply calibration from NVS (called at boot from main.cpp)
+    void applyCalibration(const TouchCalibration& cal);
 
     // LVGL timer handler — call from UI task every ~5ms
     void tick();
@@ -98,9 +109,20 @@ private:
     // ---- Gear icon button (always on top) ----
     lv_obj_t* _btnGear;
 
+    // ---- Calibration screen ----
+    lv_obj_t* _calScreen;       // fullscreen calibration overlay
+    lv_obj_t* _calCrosshair;    // crosshair label (+)
+    lv_obj_t* _calInstruction;  // "Tap the crosshair" label
+    lv_obj_t* _calProgress;     // "Step 1/5" label
+    lv_obj_t* _calBtnSkip;      // Skip button
+    int       _calStep;         // current step 0..CAL_POINT_COUNT
+    int16_t   _calRawX[CAL_POINT_COUNT];
+    int16_t   _calRawY[CAL_POINT_COUNT];
+
     int   _currentPage;
     bool  _overlayVisible;
     void (*_settingsCallback)(const AppSettings&);
+    void (*_calDoneCallback)(const TouchCalibration&);
 
     void _createPage1(lv_obj_t* parent);
     void _createPage2(lv_obj_t* parent);
@@ -109,9 +131,12 @@ private:
     void _updateNavDots(int activePage);
     void _createOverlay();
     void _createGearButton(lv_obj_t* parent);
+    void _createCalibrationScreen();
     void _applyDarkTheme();
     void _showKeyboard(lv_obj_t* ta);
     void _hideKeyboard();
+    void _advanceCalStep();
+    void _finishCalibration();
 
     static void _onTabChanged(lv_event_t* e);
     static void _onTAFocused(lv_event_t* e);
@@ -122,6 +147,9 @@ private:
     static void _onSpinboxDecrement(lv_event_t* e);
     static void _onShowPwdClicked(lv_event_t* e);
     static void _onOverlayDismiss(lv_event_t* e);
+    static void _onCalTap(lv_event_t* e);
+    static void _onCalSkip(lv_event_t* e);
+    static void _onCalibrateClicked(lv_event_t* e);
 };
 
 // LVGL display driver setup (Arduino_GFX + PCA9535 RGB panel)

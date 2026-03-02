@@ -40,6 +40,14 @@ static void onSettingsSaved(const AppSettings& newSettings) {
 }
 
 // =============================================================================
+// Calibration done callback (called from UI task when calibration completes)
+// =============================================================================
+static void onCalibrationSaved(const TouchCalibration& cal) {
+    settingsMgr.saveCalibration(cal);
+    DEBUG_PRINTLN("[Main] Touch calibration saved to NVS.");
+}
+
+// =============================================================================
 // FreeRTOS task: UI (core 1)
 // =============================================================================
 void taskUI(void* pvParams) {
@@ -205,12 +213,19 @@ void setup() {
     }
     DEBUG_PRINTLN("[I2C] Scan done.");
 
-    // Initialize UI with settings-save callback
+    // Initialize UI with settings-save and calibration callbacks
     DEBUG_PRINTLN("[Main] Init UI...");
-    ui.init(onSettingsSaved);
+    ui.init(onSettingsSaved, onCalibrationSaved);
 
     // Pre-fill settings page with current values
     ui.populateSettings(appSettings);
+
+    // Load and apply touch calibration if saved
+    TouchCalibration cal;
+    if (settingsMgr.loadCalibration(cal)) {
+        ui.applyCalibration(cal);
+        DEBUG_PRINTLN("[Main] Touch calibration applied.");
+    }
 
     // Configure data fetcher with saved settings
     fetcher.configure(appSettings.serverHost,

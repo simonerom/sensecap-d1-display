@@ -46,12 +46,19 @@
 #define NVS_KEY_TZ          "timezone"
 #define NVS_KEY_VALID       "configured"
 
+// Touch calibration NVS keys (stored as raw ADC integer values × 1000)
+#define NVS_KEY_CAL_VALID   "cal_valid"
+#define NVS_KEY_CAL_X0      "cal_x0"   // raw X at left edge
+#define NVS_KEY_CAL_X1      "cal_x1"   // raw X at right edge
+#define NVS_KEY_CAL_Y0      "cal_y0"   // raw Y at top edge
+#define NVS_KEY_CAL_Y1      "cal_y1"   // raw Y at bottom edge
+
 // =============================================================================
 // DISPLAY
 // =============================================================================
 #define SCREEN_WIDTH    480
 #define SCREEN_HEIGHT   480
-#define DISPLAY_ROTATION 0  // Portrait (ST7701 native)
+#define DISPLAY_ROTATION 2  // 180° rotation (panel mounted inverted)
 
 // Backlight brightness (0-255)
 #define BACKLIGHT_BRIGHTNESS 200

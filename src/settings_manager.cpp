@@ -45,6 +45,33 @@ void SettingsManager::save(const AppSettings& settings) {
     DEBUG_PRINTLN("[Settings] Saved to NVS.");
 }
 
+bool SettingsManager::loadCalibration(TouchCalibration& cal) {
+    Preferences prefs;
+    prefs.begin(NVS_NAMESPACE, true);
+    cal.valid = prefs.getBool(NVS_KEY_CAL_VALID, false);
+    cal.x0 = (int16_t)prefs.getInt(NVS_KEY_CAL_X0, 0);
+    cal.x1 = (int16_t)prefs.getInt(NVS_KEY_CAL_X1, 479);
+    cal.y0 = (int16_t)prefs.getInt(NVS_KEY_CAL_Y0, 0);
+    cal.y1 = (int16_t)prefs.getInt(NVS_KEY_CAL_Y1, 479);
+    prefs.end();
+    DEBUG_PRINTF("[Settings] Cal loaded: valid=%d x=[%d..%d] y=[%d..%d]\n",
+                 cal.valid, cal.x0, cal.x1, cal.y0, cal.y1);
+    return cal.valid;
+}
+
+void SettingsManager::saveCalibration(const TouchCalibration& cal) {
+    Preferences prefs;
+    prefs.begin(NVS_NAMESPACE, false);
+    prefs.putBool(NVS_KEY_CAL_VALID, true);
+    prefs.putInt(NVS_KEY_CAL_X0, cal.x0);
+    prefs.putInt(NVS_KEY_CAL_X1, cal.x1);
+    prefs.putInt(NVS_KEY_CAL_Y0, cal.y0);
+    prefs.putInt(NVS_KEY_CAL_Y1, cal.y1);
+    prefs.end();
+    DEBUG_PRINTF("[Settings] Cal saved: x=[%d..%d] y=[%d..%d]\n",
+                 cal.x0, cal.x1, cal.y0, cal.y1);
+}
+
 void SettingsManager::clear() {
     Preferences prefs;
     prefs.begin(NVS_NAMESPACE, false);
