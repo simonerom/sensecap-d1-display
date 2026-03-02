@@ -430,7 +430,7 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     // Italian day headers Mon-first
     static const char* dayNames[] = { "Lu","Ma","Me","Gi","Ve","Sa","Do" };
 
-    const int CELL_W = 66;
+    const int CELL_W = 62;
     const int CELL_H = 36;
 
     // Outer white card
@@ -459,8 +459,8 @@ lv_obj_t* WidgetFactory::_buildCalendarGrid(lv_obj_t* parent, const AttrMap& att
     lv_obj_set_width(grid, LV_PCT(100));
     lv_obj_set_height(grid, LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(grid, LV_FLEX_FLOW_ROW_WRAP);
-    lv_obj_set_style_pad_row(grid, 2, 0);
-    lv_obj_set_style_pad_column(grid, 0, 0);
+    lv_obj_set_style_pad_row(grid, 3, 0);
+    lv_obj_set_style_pad_column(grid, 3, 0);
 
     lv_obj_t** cells = (lv_obj_t**)malloc(42 * sizeof(lv_obj_t*));
     for (int i = 0; i < 42; i++) {
