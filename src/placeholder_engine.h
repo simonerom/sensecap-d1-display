@@ -112,4 +112,5 @@ private:
     void _pushArray(const String& key, const std::vector<String>& items);
     void _updateVisibility(const String& key, const char* value);
     void _fireTrend(const String& key, const char* value);
+    String _friendlyToLvgl(const String& in) const;
 };

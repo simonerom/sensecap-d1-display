@@ -211,11 +211,18 @@ lv_obj_t* WidgetFactory::_buildLabel(lv_obj_t* parent, const AttrMap& attrs) {
     lv_color_t col  = _attrColor(attrs, "color", 0xFFFFFF);
     String align    = _attr(attrs, "align", "left");
     bool bold       = _attrBool(attrs, "bold", false);
+    bool italic     = _attrBool(attrs, "italic", false);
+    bool recolor    = _attrBool(attrs, "recolor", false) || _attrBool(attrs, "rich", false);
     int maxLines    = _attrInt(attrs, "max_lines", 0);
 
     lv_obj_t* lbl = lv_label_create(parent);
     lv_hlp_set_text_color(lbl, col);
     lv_hlp_set_font(lbl, lv_hlp_font_ex(fontSize, bold));
+    lv_label_set_recolor(lbl, recolor);
+    if (italic) {
+        // Fallback italic style: underline (true italic fonts are not embedded)
+        lv_obj_set_style_text_decor(lbl, LV_TEXT_DECOR_UNDERLINE, 0);
+    }
     // Zero label's own padding — spacing is controlled by parent gap
     lv_obj_set_style_pad_all(lbl, 0, 0);
     // flex="1" → grow to fill row; otherwise full width for wrapping
@@ -304,6 +311,9 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
     lv_color_t col    = _attrColor(attrs, "color", 0xCCCCCC);
     lv_color_t divCol = _attrColor(attrs, "divider", 0x000000);
     bool hasDivider   = attrs.count("divider") > 0;
+    bool bold         = _attrBool(attrs, "bold", false);
+    bool italic       = _attrBool(attrs, "italic", false);
+    bool recolor      = _attrBool(attrs, "recolor", false) || _attrBool(attrs, "rich", false);
     String bullet     = _attr(attrs, "bullet", "• ");
 
     // Container for the list items
@@ -314,9 +324,9 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
 
     // Store config in a heap struct for the rebuild lambda
     struct ListCfg {
-        int fontSize; lv_color_t col; lv_color_t divCol; bool hasDivider; String bullet;
+        int fontSize; lv_color_t col; lv_color_t divCol; bool hasDivider; bool bold; bool italic; bool recolor; String bullet;
     };
-    auto* cfg = new ListCfg{fontSize, col, divCol, hasDivider, bullet};
+    auto* cfg = new ListCfg{fontSize, col, divCol, hasDivider, bold, italic, recolor, bullet};
 
     // Wire up array placeholder
     if (!itemsAttr.isEmpty() && itemsAttr.startsWith("{") && itemsAttr.endsWith("}")) {
@@ -339,7 +349,9 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                     lv_obj_t* lbl = lv_label_create(c);
                     lv_label_set_text(lbl, text.c_str());
                     lv_hlp_set_text_color(lbl, cfg->col);
-                    lv_hlp_set_font(lbl, lv_hlp_font(cfg->fontSize));
+                    lv_hlp_set_font(lbl, lv_hlp_font_ex(cfg->fontSize, cfg->bold));
+                    lv_label_set_recolor(lbl, cfg->recolor);
+                    if (cfg->italic) lv_obj_set_style_text_decor(lbl, LV_TEXT_DECOR_UNDERLINE, 0);
                     lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
                     lv_obj_set_width(lbl, LV_PCT(100));
                 }
@@ -358,8 +370,10 @@ lv_obj_t* WidgetFactory::_buildCryptoRow(lv_obj_t* parent, const AttrMap& attrs)
     String priceAttr  = _attr(attrs, "price",  "--");
     String changeAttr = _attr(attrs, "change", "--");
     String trendAttr  = _attr(attrs, "trend",  "up");
-    lv_color_t upCol  = _attrColor(attrs, "up_color",   0x00D4AA);
-    lv_color_t dnCol  = _attrColor(attrs, "down_color", 0xFF6B6B);
+    lv_color_t upCol    = _attrColor(attrs, "up_color",   0x00D4AA);
+    lv_color_t dnCol    = _attrColor(attrs, "down_color", 0xFF6B6B);
+    lv_color_t symCol   = _attrColor(attrs, "symbol_color", 0xE6E6F5);
+    lv_color_t priceCol = _attrColor(attrs, "price_color",  0xF2F2FA);
 
     lv_obj_t* row = lv_hlp_obj(parent);
     lv_hlp_flex_row(row, 8);
@@ -376,7 +390,7 @@ lv_obj_t* WidgetFactory::_buildCryptoRow(lv_obj_t* parent, const AttrMap& attrs)
     // Symbol label
     lv_obj_t* symLbl = lv_label_create(row);
     lv_hlp_set_font(symLbl, lv_hlp_font_bold(18));
-    lv_hlp_set_text_color(symLbl, lv_hlp_hex(0x1A1A2E));
+    lv_hlp_set_text_color(symLbl, symCol);
     lv_obj_set_width(symLbl, 70);
     String symRes = _resolveAndRegister(symLbl, symbolAttr.c_str());
     lv_label_set_text(symLbl, symRes.c_str());
@@ -384,14 +398,14 @@ lv_obj_t* WidgetFactory::_buildCryptoRow(lv_obj_t* parent, const AttrMap& attrs)
     // Price label (flex grow to fill remaining space)
     lv_obj_t* priceLbl = lv_label_create(row);
     lv_hlp_set_font(priceLbl, lv_hlp_font(18));
-    lv_hlp_set_text_color(priceLbl, lv_hlp_hex(0x333333));
+    lv_hlp_set_text_color(priceLbl, priceCol);
     lv_hlp_flex_grow(priceLbl, 1);
     String priceRes = _resolveAndRegister(priceLbl, priceAttr.c_str());
     lv_label_set_text(priceLbl, priceRes.c_str());
 
     // Change label (trend-colored)
     lv_obj_t* changeLbl = lv_label_create(row);
-    lv_hlp_set_font(changeLbl, lv_hlp_font(14));
+    lv_hlp_set_font(changeLbl, lv_hlp_font_bold(16));
     lv_obj_set_width(changeLbl, 70);
     lv_obj_set_style_text_align(changeLbl, LV_TEXT_ALIGN_RIGHT, 0);
 

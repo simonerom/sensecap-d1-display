@@ -36,6 +36,32 @@ Cache-Control: no-cache
 
 ---
 
+
+### LVGL recolor syntax
+
+### Friendly mini-syntax (server-side / runtime normalized)
+
+The firmware also accepts a friendlier syntax in dynamic text values (placeholder data):
+
+- `**text**` → emphasized (mapped to bright recolor)
+- `_text_` → soft emphasis (mapped to accent recolor)
+- `{#RRGGBB}text{/}` → explicit color span
+
+These are normalized to LVGL recolor tags before rendering.
+
+
+When `recolor="true"` (or `rich="true"`) is set on `<label>` / `<list>`, text can include:
+
+```
+#RRGGBB your text here#
+```
+
+Example:
+
+```xml
+<label text="#FF6B6B Allerta# #CFE8FF meteo in aggiornamento#" recolor="true"/>
+```
+
 ## data.json
 
 ### Schema
@@ -202,6 +228,9 @@ A text label.
 | `color` | color | ❌ | `#FFFFFF` | Text color |
 | `align` | string | ❌ | `left` | `left`, `center`, `right` |
 | `bold` | bool | ❌ | `false` | Bold font weight |
+| `italic` | bool | ❌ | `false` | Italic-like emphasis (underline fallback on current firmware fonts) |
+| `recolor` | bool | ❌ | `false` | Enable LVGL inline color tags `#RRGGBB text#` |
+| `rich` | bool | ❌ | `false` | Alias of `recolor` for readability |
 | `max_lines` | int | ❌ | `0` | Max lines (0 = unlimited) |
 
 ---
@@ -218,6 +247,10 @@ A vertical list of text items from a JSON array placeholder.
 | `divider` | color | ❌ | none | Divider line color between items |
 | `max_lines` | int | ❌ | `2` | Max lines per item |
 | `bullet` | string | ❌ | `•` | Bullet character |
+| `bold` | bool | ❌ | `false` | Use bold font for each item |
+| `italic` | bool | ❌ | `false` | Italic-like emphasis (underline fallback) |
+| `recolor` | bool | ❌ | `false` | Enable LVGL inline color tags for each item |
+| `rich` | bool | ❌ | `false` | Alias of `recolor` for readability |
 
 ---
 
@@ -233,6 +266,8 @@ A single row showing a crypto asset: symbol + price + colored change.
 | `trend` | string/placeholder | ✅ | — | `"up"` or `"down"` or `{btc_trend}` |
 | `up_color` | color | ❌ | `#00D4AA` | Color when trend=up |
 | `down_color` | color | ❌ | `#FF6B6B` | Color when trend=down |
+| `symbol_color` | color | ❌ | inherited | Symbol text color |
+| `price_color` | color | ❌ | inherited | Price text color |
 
 ---
 

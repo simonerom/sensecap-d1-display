@@ -63,7 +63,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.39"
+SPEC_VERSION = "1.3.49"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -469,30 +469,40 @@ def build_roberta_note(now, rain_morning, rain_evening):
 def build_meteo_summary(now, weather, events):
     fc = weather.get("forecast", [])
     parts = []
-    parts.append(f"{weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}")
+
+    parts.append(f"**Meteo attuale**  {weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}")
+
     if fc:
         t = fc[0]
         precip = t.get("precip", 0) or 0
         prob = weather.get("rain_max_today", 0)
         rain = f"pioggia {prob}% ({precip:.0f}mm)" if (prob >= 20 or precip >= 1) else "nessuna pioggia"
-        parts.append(f"Oggi: {t['desc']}, {t['max']}°/{t['min']}°C — {rain}")
+        parts.append(f"{{#9CCBFF}}Oggi{{/}}  {t['desc']}, {t['max']}°/{t['min']}°C - {rain}")
+
     if len(fc) > 1:
         t = fc[1]
         precip = t.get("precip", 0) or 0
         prob = weather.get("rain_max_tomorrow", 0)
         rain = f"pioggia {prob}% ({precip:.0f}mm)" if (prob >= 20 or precip >= 1) else "nessuna pioggia"
-        parts.append(f"Domani: {t['desc']}, {t['max']}°/{t['min']}°C — {rain}")
+        parts.append(f"{{#9CCBFF}}Domani{{/}}  {t['desc']}, {t['max']}°/{t['min']}°C - {rain}")
+
     roberta = build_roberta_note(now, weather["rain_morning"], weather["rain_evening"])
     if roberta:
-        parts.append(f"\n{roberta}")
+        parts.append("")
+        parts.append("_Commute Roberta_")
+        for line in roberta.split("\n"):
+            parts.append(f"{{#D6D6EA}}-{{/}} {line}")
+
     today_date = now.strftime("%-d %b").lower()
-    today_events = [e for e in events if isinstance(e, str) and today_date.lower() in e.lower()]
+    today_events = [e for e in events if isinstance(e, str) and today_date in e.lower()]
     if today_events:
-        parts.append("\n◉ Oggi:")
+        parts.append("")
+        parts.append("{#FFD89C}Agenda di oggi{/}")
         for e in today_events:
             title = e.split("|||")[0] if "|||" in e else e
             date_s = e.split("|||")[1] if "|||" in e else ""
-            parts.append(f"  {title}" + (f" - {date_s}" if date_s else ""))
+            parts.append(f"{{#FFD89C}}-{{/}} **{title}**" + (f" - {date_s}" if date_s else ""))
+
     return "\n".join(parts)
 
 # ─── Data builder ─────────────────────────────────────────────────────────────
@@ -591,25 +601,25 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.4.1">
+<screens version="1.4.15">
 
   <screen id="home" bg="#4A235A" grad_color="#1B4F72" pad="10">
     <row gap="10" h="310">
       <!-- Left col: Interno + Esterno -->
       <col flex="1" gap="10">
-        <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
+        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
           <label text="Interno" font="18" color="#CCCCEE" bold="true" align="center"/>
           <label text="{indoor_temp}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="{indoor_hum}" font="16" color="#AAAACC" align="center"/>
         </card>
-        <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
+        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
           <label text="Esterno" font="18" color="#CCCCEE" bold="true" align="center"/>
           <label text="{outdoor_temp}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="{outdoor_hum}" font="16" color="#AAAACC" align="center"/>
         </card>
       </col>
       <!-- Center: tall date card -->
-      <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
+      <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
         <label text="{weekday}" font="28" color="#CCCCEE" align="center"/>
         <label text="{day}" font="128" color="#FFFFFF" align="center" bold="true"/>
         <label text="{month_name}" font="28" color="#CCCCEE" align="center"/>
@@ -620,12 +630,12 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       </card>
       <!-- Right col: tVOC + CO2 -->
       <col flex="1" gap="10">
-        <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1" valign="center">
+        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1" valign="center">
           <label text="tVOC" font="18" color="#CCCCEE" bold="true" align="center"/>
           <label text="{voc}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="idx" font="16" color="#AAAACC" align="center"/>
         </card>
-        <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
+        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
           <label text="CO2" font="18" color="#CCCCEE" bold="true" align="center"/>
           <label text="{co2}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="{co2_unit}" font="16" color="#AAAACC" align="center"/>
@@ -634,25 +644,25 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </row>
     <label text="agg. {data_age}" font="12" color="#CCCCEE" align="right" w="100%"/>
     <!-- Bottom: scrollable full buongiorno -->
-    <card bg="#FFFFFF" bg_opa="220" border_color="#FFFFFF" border_width="0" radius="12" pad="14" w="100%" scroll="true" scrollbar="false" gap="16">
-      <card bg="#FFF3E0" radius="6" pad="10" w="100%" visible="{scioperi_visible}">
-        <label text="⚠ Scioperi in arrivo" font="18" color="#E65100" bold="true"/>
-        <label text="{scioperi_text}" font="16" color="#BF360C" max_lines="0"/>
+    <card bg="#000" bg_opa="30" border_color="#FF2D2D" border_width="2" radius="8" pad="10" w="100%" visible="{scioperi_visible}">
+        <label text="⚠ Scioperi in arrivo" font="18" color="#FFD6D6" bold="true"/>
+        <label text="{scioperi_text}" font="16" color="#FFECEC" max_lines="0"/>
       </card>
-      <label text="☁ Meteo" font="22" color="#1A1A2E" bold="true"/>
-      <label text="{meteo_summary}" font="18" color="#444444" max_lines="0"/>
-      <label text="★ Notizie Italia" font="22" color="#1A1A2E" bold="true"/>
-      <list items="{news_italia}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
-      <label text="★ Notizie Estero" font="22" color="#1A1A2E" bold="true"/>
-      <list items="{news_estero}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
-      <label text="★ Milano" font="22" color="#1A1A2E" bold="true"/>
-      <list items="{news_milano}" font="18" color="#333333" divider="#DDDDDD" max_lines="2"/>
-      <label text="$ Mercati" font="22" color="#1A1A2E" bold="true"/>
-      <crypto_row symbol="{btc_symbol}" price="{btc_price}" change="{btc_change}" trend="{btc_trend}" up_color="#00A885" down_color="#E53935"/>
-      <crypto_row symbol="{eth_symbol}" price="{eth_price}" change="{eth_change}" trend="{eth_trend}" up_color="#00A885" down_color="#E53935"/>
-      <crypto_row symbol="{iotx_symbol}" price="{iotx_price}" change="{iotx_change}" trend="{iotx_trend}" up_color="#00A885" down_color="#E53935"/>
-      <label text="◆ Curiosita" font="22" color="#1A1A2E" bold="true"/>
-      <label text="{curiosity}" font="18" color="#555555" max_lines="0"/>
+    <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="14" w="100%" scroll="true" scrollbar="false" gap="16">
+      <label text="☁ Meteo" font="22" color="#E6E6F5" bold="true"/>
+      <label text="{meteo_summary}" font="18" color="#D9D9EE" max_lines="0" recolor="true"/>
+      <label text="★ Notizie Italia" font="22" color="#E6E6F5" bold="true"/>
+      <list items="{news_italia}" font="18" color="#F2F2FA" divider="#6E6E8A" max_lines="2"/>
+      <label text="★ Notizie Estero" font="22" color="#E6E6F5" bold="true"/>
+      <list items="{news_estero}" font="18" color="#F2F2FA" divider="#6E6E8A" max_lines="2"/>
+      <label text="★ Milano" font="22" color="#E6E6F5" bold="true"/>
+      <list items="{news_milano}" font="18" color="#F2F2FA" divider="#6E6E8A" max_lines="2"/>
+      <label text="$ Mercati" font="22" color="#E6E6F5" bold="true"/>
+      <crypto_row symbol="{btc_symbol}" price="{btc_price}" change="{btc_change}" trend="{btc_trend}" symbol_color="#E6E6F5" price_color="#F2F2FA" up_color="#00A885" down_color="#E53935"/>
+      <crypto_row symbol="{eth_symbol}" price="{eth_price}" change="{eth_change}" trend="{eth_trend}" symbol_color="#E6E6F5" price_color="#F2F2FA" up_color="#00A885" down_color="#E53935"/>
+      <crypto_row symbol="{iotx_symbol}" price="{iotx_price}" change="{iotx_change}" trend="{iotx_trend}" symbol_color="#E6E6F5" price_color="#F2F2FA" up_color="#00A885" down_color="#E53935"/>
+      <label text="◆ Curiosita" font="22" color="#E6E6F5" bold="true"/>
+      <label text="{curiosity}" font="18" color="#D9D9EE" max_lines="0"/>
     </card>
     <card bg="#E53935" radius="6" pad="12" w="100%" visible="{alert_visible}">
       <label text="⚠ {alert}" font="16" color="#FFFFFF" align="center"/>

@@ -4,6 +4,7 @@
 #include "placeholder_engine.h"
 #include <time.h>
 #include <Arduino.h>
+#include <ctype.h>
 
 PlaceholderEngine::PlaceholderEngine() {}
 
@@ -16,7 +17,8 @@ void PlaceholderEngine::registerLabel(const char* key, lv_obj_t* label) {
     // Set initial text if we already have a value
     auto it = _values.find(String(key));
     if (it != _values.end()) {
-        lv_label_set_text(label, it->second.c_str());
+        String converted = _friendlyToLvgl(it->second);
+        lv_label_set_text(label, converted.c_str());
     }
 }
 
@@ -172,7 +174,7 @@ String PlaceholderEngine::resolve(const char* templateStr) const {
                 String key(p + 1, (unsigned)(end - p - 1));
                 auto it = _values.find(key);
                 if (it != _values.end()) {
-                    result += it->second;
+                    result += _friendlyToLvgl(it->second);
                 } else {
                     result += '{';
                     result += key;
@@ -206,20 +208,103 @@ void PlaceholderEngine::clearRegistrations() {
 // =============================================================================
 // Internal helpers
 // =============================================================================
+String PlaceholderEngine::_friendlyToLvgl(const String& in) const {
+    String out = in;
+
+    // {#RRGGBB}text{/} -> #RRGGBB text#
+    int guard = 0;
+    while (guard++ < 64) {
+        int a = out.indexOf("{#");
+        if (a < 0) break;
+        int b = out.indexOf("}", a + 2);
+        if (b < 0) break;
+        int c = out.indexOf("{/}", b + 1);
+        if (c < 0) break;
+        String hex = out.substring(a + 2, b);
+        if (hex.length() == 6) {
+            String repl = "#" + hex + " " + out.substring(b + 1, c) + "#";
+            out = out.substring(0, a) + repl + out.substring(c + 3);
+        } else {
+            break;
+        }
+    }
+
+    // **bold** -> bright text color (style-only fallback)
+    guard = 0;
+    while (guard++ < 64) {
+        int a = out.indexOf("**");
+        if (a < 0) break;
+        int b = out.indexOf("**", a + 2);
+        if (b < 0) break;
+        String inner = out.substring(a + 2, b);
+        String repl = "#FFFFFF " + inner + "#";
+        out = out.substring(0, a) + repl + out.substring(b + 2);
+    }
+
+    // _italic_ -> softer accent color (style-only fallback)
+    // Only treat as marker when underscore is delimiter-like, to avoid names like co2_value.
+    auto isWord = [](char c) -> bool {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+    };
+    guard = 0;
+    while (guard++ < 128) {
+        int a = out.indexOf("_");
+        if (a < 0) break;
+        int b = out.indexOf("_", a + 1);
+        if (b < 0) break;
+
+        char prev = (a > 0) ? out[a - 1] : ' ';
+        char next = (a + 1 < out.length()) ? out[a + 1] : ' ';
+        char prev2 = (b > 0) ? out[b - 1] : ' ';
+        char next2 = (b + 1 < out.length()) ? out[b + 1] : ' ';
+
+        bool openOk = !isWord(prev) && !isspace((unsigned char)next);
+        bool closeOk = !isspace((unsigned char)prev2) && !isWord(next2);
+        if (!openOk || !closeOk || b == a + 1) {
+            // Skip this underscore and continue search
+            String left = out.substring(0, a + 1);
+            String right = out.substring(a + 1);
+            int rel = right.indexOf("_");
+            if (rel < 0) break;
+            int aa = a + 1 + rel;
+            b = out.indexOf("_", aa + 1);
+            if (b < 0) break;
+            a = aa;
+            prev = (a > 0) ? out[a - 1] : ' ';
+            next = (a + 1 < out.length()) ? out[a + 1] : ' ';
+            prev2 = (b > 0) ? out[b - 1] : ' ';
+            next2 = (b + 1 < out.length()) ? out[b + 1] : ' ';
+            openOk = !isWord(prev) && !isspace((unsigned char)next);
+            closeOk = !isspace((unsigned char)prev2) && !isWord(next2);
+            if (!openOk || !closeOk || b == a + 1) break;
+        }
+
+        String inner = out.substring(a + 1, b);
+        String repl = "#D6D6EA " + inner + "#";
+        out = out.substring(0, a) + repl + out.substring(b + 1);
+    }
+
+    return out;
+}
+
 void PlaceholderEngine::_pushScalar(const String& key, const char* value) {
     auto it = _labels.find(key);
     if (it == _labels.end()) return;
+    String converted = _friendlyToLvgl(String(value ? value : ""));
     for (lv_obj_t* lbl : it->second) {
-        if (lbl) lv_label_set_text(lbl, value);
+        if (lbl) lv_label_set_text(lbl, converted.c_str());
     }
 }
 
 void PlaceholderEngine::_pushArray(const String& key, const std::vector<String>& items) {
     auto it = _arrays.find(key);
     if (it == _arrays.end()) return;
+    std::vector<String> converted;
+    converted.reserve(items.size());
+    for (const auto& v : items) converted.push_back(_friendlyToLvgl(v));
     for (auto& entry : it->second) {
         if (entry.container && entry.rebuildFn)
-            entry.rebuildFn(entry.container, items);
+            entry.rebuildFn(entry.container, converted);
     }
 }
 
