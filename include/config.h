@@ -19,7 +19,7 @@
 #define POLL_INTERVAL_MS    60000
 
 // HTTP timeout in milliseconds
-#define HTTP_TIMEOUT_MS     15000
+#define HTTP_TIMEOUT_MS     6000
 
 // Layout XML caching (SPIFFS)
 #define LAYOUT_SPIFFS_PATH    "/layout.xml"   // file path in SPIFFS
