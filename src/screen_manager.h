@@ -78,6 +78,8 @@ public:
     // ---- Public interface (called from main.cpp / tasks) ----
     void goToSettings();
     void goTo(PageId page);
+    void navigateNextPageCyclic();
+    void navigatePrevPageCyclic();
 
     // Thread-safe post methods (called from taskNetwork / taskSensor, Core 0).
     // They enqueue a UiCommand; actual LVGL calls happen in tick().

@@ -236,6 +236,22 @@ void ScreenManager::postGoToSettings() {
     xQueueSend(_queue, &cmd, 0);
 }
 
+
+void ScreenManager::navigateNextPageCyclic() {
+    if      (_currentPage == PageId::Home)    _navigateTo(PageId::Calendar);
+    else if (_currentPage == PageId::Calendar)_navigateTo(PageId::Clock);
+    else if (_currentPage == PageId::Clock)   _navigateTo(PageId::Heating);
+    else                                       _navigateTo(PageId::Home); // Heating/Settings -> Home
+}
+
+void ScreenManager::navigatePrevPageCyclic() {
+    if      (_currentPage == PageId::Home)     _navigateTo(PageId::Heating);
+    else if (_currentPage == PageId::Heating)  _navigateTo(PageId::Clock);
+    else if (_currentPage == PageId::Clock)    _navigateTo(PageId::Calendar);
+    else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Home);
+    else                                        _navigateTo(PageId::Home); // Settings -> Home
+}
+
 bool ScreenManager::consumeRefreshRequest() {
     if (_refreshRequested) { _refreshRequested = false; return true; }
     return false;

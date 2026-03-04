@@ -38,6 +38,13 @@ static AppSettings     appSettings;
 // Timing
 static uint32_t lastFetchMs  = 0;
 static bool     firstFetch   = true;
+
+// Top hardware button (single click: next page, double click: previous page)
+static const int TOP_BUTTON_PIN = 0; // BOOT-like pin on ESP32-S3 boards
+static bool topBtnLast = true;
+static uint32_t topBtnLastChange = 0;
+static uint32_t topBtnClickCount = 0;
+static uint32_t topBtnFirstClickMs = 0;
 static uint32_t heatFastUntilMs = 0;
 static uint32_t lastHeatActionTs = 0;
 
@@ -108,6 +115,23 @@ void taskSensor(void* pvParams) {
         rp2040.poll();
 
         uint32_t now = millis();
+
+        // Top button click detection (debounced)
+        bool btn = digitalRead(TOP_BUTTON_PIN);
+        if (btn != topBtnLast && (now - topBtnLastChange) > 30) {
+            topBtnLastChange = now;
+            topBtnLast = btn;
+            // count on release (HIGH with pullup)
+            if (btn) {
+                if (topBtnClickCount == 0) topBtnFirstClickMs = now;
+                topBtnClickCount++;
+            }
+        }
+        if (topBtnClickCount > 0 && (now - topBtnFirstClickMs) > 320) {
+            if (topBtnClickCount >= 2) screenMgr.navigatePrevPageCyclic();
+            else screenMgr.navigateNextPageCyclic();
+            topBtnClickCount = 0;
+        }
         if (now - lastMs >= SENSOR_POLL_MS) {
             lastMs = now;
 
