@@ -64,7 +64,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.77"
+SPEC_VERSION = "1.3.78"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -528,6 +528,7 @@ def get_heating():
         out["heat_global"] = "Tutto acceso"
     else:
         out["heat_global"] = f"Misto ({on_cnt}/{total} accesi)"
+    out["heat_global_paren"] = f"({out['heat_global']})"
     return out
 
 def heating_action(cmd):
