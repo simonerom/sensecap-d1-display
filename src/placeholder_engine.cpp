@@ -130,7 +130,7 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
         } else if (delta < 3600) {
             snprintf(ageBuf, sizeof(ageBuf), "%ldm fa", delta / 60);
         } else {
-            snprintf(ageBuf, sizeof(ageBuf), "%ldh fa", delta / 3600);
+            snprintf(ageBuf, sizeof(ageBuf), "%ldh fa", (delta + 1800) / 3600);
         }
         setValue("data_age", ageBuf);
     } else if (_dataFetchedMs > 0) {
@@ -145,7 +145,7 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
         } else if (elapsed < 3600) {
             snprintf(ageBuf, sizeof(ageBuf), "%um fa", elapsed / 60);
         } else {
-            snprintf(ageBuf, sizeof(ageBuf), "%uh fa", elapsed / 3600);
+            snprintf(ageBuf, sizeof(ageBuf), "%uh fa", (elapsed + 1800) / 3600);
         }
         setValue("data_age", ageBuf);
     } else {
