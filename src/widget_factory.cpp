@@ -2,6 +2,7 @@
 // widget_factory.cpp
 // =============================================================================
 #include "widget_factory.h"
+#include <extra/widgets/span/lv_span.h>
 #include <set>
 #include "../include/config.h"
 
@@ -348,52 +349,83 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                     }
                     String line = items[i];
                     int localFont = cfg->fontSize;
-                    bool localBold = cfg->bold;
                     lv_color_t localCol = cfg->col;
-                    if (cfg->markdown || line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### ") || line.startsWith("- ") || line.indexOf("**") >= 0) {
-                        if (line.startsWith("### ")) { line = line.substring(4); localFont = 22; localBold = true; localCol = lv_hlp_hex(0x93C5FD); }
-                        else if (line.startsWith("## ")) { line = line.substring(3); localFont = 24; localBold = true; localCol = lv_hlp_hex(0x7DD3FC); }
-                        else if (line.startsWith("# ")) { line = line.substring(2); localFont = 28; localBold = true; localCol = lv_hlp_hex(0x60A5FA); }
-                        if (line.startsWith("- ")) line = String("• ") + line.substring(2);
+                    bool markdownLike = cfg->markdown || line.startsWith("# ") || line.startsWith("## ") || line.startsWith("- ") || line.indexOf("**") >= 0 || line.indexOf("{#") >= 0;
 
-                        // inline emphasis parsing (best-effort)
-                        bool isHeader = line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### ");
-                        bool hasStrong = (line.indexOf("**") >= 0);
-                        bool hasEm = (!hasStrong && (line.indexOf("*") >= 0 || line.indexOf("_") >= 0));
+                    // Header levels (#, ##, ###)
+                    if (line.startsWith("### ")) { line = line.substring(4); localFont = 22; localCol = lv_hlp_hex(0x93C5FD); }
+                    else if (line.startsWith("## ")) { line = line.substring(3); localFont = 24; localCol = lv_hlp_hex(0x7DD3FC); }
+                    else if (line.startsWith("# ")) { line = line.substring(2); localFont = 28; localCol = lv_hlp_hex(0x60A5FA); }
 
-                        // Keep header color stable (do not override to red)
-                        if (!isHeader && hasEm && !localBold) {
-                            localCol = lv_hlp_hex(0xD6D6EA);
+                    // Bullet list
+                    if (line.startsWith("- ")) line = String("• ") + line.substring(2);
+
+                    if (!markdownLike) {
+                        String text = cfg->bullet + line;
+                        lv_obj_t* lbl = lv_label_create(c);
+                        lv_label_set_text(lbl, text.c_str());
+                        lv_hlp_set_text_color(lbl, localCol);
+                        lv_hlp_set_font(lbl, lv_hlp_font_ex(localFont, cfg->bold));
+                        lv_label_set_recolor(lbl, cfg->recolor);
+                        if (cfg->italic) lv_obj_set_style_text_decor(lbl, LV_TEXT_DECOR_UNDERLINE, 0);
+                        lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
+                        lv_obj_set_width(lbl, LV_PCT(100));
+                    } else {
+                        // Mini-markdown parser with inline bold + color spans
+                        lv_obj_t* sg = lv_spangroup_create(c);
+                        lv_obj_set_width(sg, LV_PCT(100));
+                        lv_obj_set_height(sg, LV_SIZE_CONTENT);
+                        lv_spangroup_set_mode(sg, LV_SPAN_MODE_BREAK);
+
+                        auto addSpan = [&](const String& txt, bool bold, lv_color_t col) {
+                            if (txt.isEmpty()) return;
+                            lv_span_t* sp = lv_spangroup_new_span(sg);
+                            lv_span_set_text(sp, txt.c_str());
+                            lv_style_set_text_color(&sp->style, col);
+                            lv_style_set_text_font(&sp->style, lv_hlp_font_ex(localFont, bold));
+                        };
+
+                        lv_color_t curCol = localCol;
+                        bool curBold = false;
+                        String acc;
+                        int pos = 0;
+                        while (pos < line.length()) {
+                            // bold marker **
+                            if (pos + 1 < line.length() && line[pos] == '*' && line[pos + 1] == '*') {
+                                addSpan(acc, curBold, curCol); acc = "";
+                                curBold = !curBold;
+                                pos += 2;
+                                continue;
+                            }
+                            // color open {#RRGGBB}
+                            if (pos + 8 < line.length() && line[pos] == '{' && line[pos+1] == '#') {
+                                int close = line.indexOf('}', pos + 2);
+                                if (close > pos) {
+                                    String hex = line.substring(pos + 2, close);
+                                    if (hex.length() == 6) {
+                                        addSpan(acc, curBold, curCol); acc = "";
+                                        uint32_t hv = (uint32_t)strtoul(hex.c_str(), nullptr, 16);
+                                        curCol = lv_hlp_hex(hv);
+                                        pos = close + 1;
+                                        continue;
+                                    }
+                                }
+                            }
+                            // color close {/}
+                            if (pos + 2 < line.length() && line[pos] == '{' && line[pos+1] == '/' && line[pos+2] == '}') {
+                                addSpan(acc, curBold, curCol); acc = "";
+                                curCol = localCol;
+                                pos += 3;
+                                continue;
+                            }
+                            // ignore single * and _ markdown markers
+                            if (line[pos] == '*' || line[pos] == '_') { pos += 1; continue; }
+
+                            acc += line[pos];
+                            pos += 1;
                         }
-
-                        // remove markdown markers from rendered text
-                        line.replace("**", "");
-                        line.replace("*", "");
-                        line.replace("_", "");
-
-                        // normalize color spans: {#RRGGBB}text{/} -> #RRGGBB text# (LVGL recolor)
-                        while (true) {
-                            int s = line.indexOf("{#");
-                            if (s < 0) break;
-                            int m = line.indexOf("}", s + 2);
-                            if (m < 0) break;
-                            int e = line.indexOf("{/}", m + 1);
-                            if (e < 0) break;
-                            String hex = line.substring(s + 2, m);
-                            String inner = line.substring(m + 1, e);
-                            String rep = "#" + hex + " " + inner + "#";
-                            line = line.substring(0, s) + rep + line.substring(e + 3);
-                        }
+                        addSpan(acc, curBold, curCol);
                     }
-                    String text = cfg->bullet + line;
-                    lv_obj_t* lbl = lv_label_create(c);
-                    lv_label_set_text(lbl, text.c_str());
-                    lv_hlp_set_text_color(lbl, localCol);
-                    lv_hlp_set_font(lbl, lv_hlp_font_ex(localFont, localBold));
-                    lv_label_set_recolor(lbl, cfg->recolor);
-                    if (cfg->italic) lv_obj_set_style_text_decor(lbl, LV_TEXT_DECOR_UNDERLINE, 0);
-                    lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
-                    lv_obj_set_width(lbl, LV_PCT(100));
                 }
             }
         );
