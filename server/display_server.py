@@ -64,7 +64,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.79"
+SPEC_VERSION = "1.3.80"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -522,6 +522,17 @@ def get_heating():
         tgt = st.get("target_C", 0)
         is_on = isinstance(tgt, (int, float)) and tgt >= 20
         out[f"heat_{name}"] = "Acceso" if is_on else "Spento"
+        # extra telemetry for UI cards
+        batt = None
+        try:
+            if isinstance(st.get("battery"), dict):
+                batt = st.get("battery", {}).get("percent")
+            if batt is None:
+                batt = st.get("battery_percent")
+        except Exception:
+            batt = None
+        out[f"heat_{name}_battery"] = f"{int(batt)}%" if isinstance(batt, (int, float)) else "--"
+        out[f"heat_{name}_target"] = (f"{float(tgt):.1f}°C" if isinstance(tgt, (int, float)) and tgt > 0 else "--")
         if is_on:
             on_cnt += 1
     if on_cnt == 0:

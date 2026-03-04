@@ -454,7 +454,7 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
 lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& attrs) {
     (void)attrs;
 
-    struct HeatToggleCtx { String base; lv_obj_t* st; lv_obj_t* sw; lv_obj_t* swLbl; bool pendingOn=false; uint32_t pendingUntilMs=0; };
+    struct HeatToggleCtx { String base; lv_obj_t* sw; lv_obj_t* swLbl; bool pendingOn=false; uint32_t pendingUntilMs=0; };
 
     auto sendCmd = [](const String& cmd) {
         AppSettings s{}; SettingsManager sm; sm.load(s);
@@ -563,19 +563,15 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_hlp_set_font(name, lv_hlp_font_ex(15, true));
             lv_hlp_flex_grow(name, 1);
 
-            lv_obj_t* st = lv_label_create(hr);
             String key = String("heat_") + r.key;
             String ph = String("{") + key + "}";
-            String stTxt = _resolveAndRegister(st, ph.c_str());
-            lv_label_set_text(st, stTxt.c_str());
-            lv_hlp_set_text_color(st, lv_color_white());
-            lv_hlp_set_font(st, lv_hlp_font_ex(14, true));
+            String stTxt = _engine.get(key.c_str());
 
             // Inline switch in header row for guaranteed visibility
             lv_obj_t* sw = lv_btn_create(hr);
             // width ~2x height
-            lv_obj_set_size(sw, 60, 30);
-            lv_hlp_set_radius(sw, 15);
+            lv_obj_set_size(sw, 56, 28);
+            lv_hlp_set_radius(sw, 8);
             lv_obj_t* swLbl = lv_label_create(sw);
             lv_obj_center(swLbl);
 
@@ -591,10 +587,29 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             }
             lv_label_set_text(swLbl, isOn ? "ON" : "OFF");
             lv_hlp_set_text_color(swLbl, lv_color_white());
-            lv_hlp_set_font(swLbl, lv_hlp_font_ex(12, true));
+            lv_hlp_set_font(swLbl, lv_hlp_font_ex(10, true));
+
+            // Telemetry line: battery + target temperature
+            lv_obj_t* infoRow = lv_hlp_obj(card);
+            lv_hlp_flex_row(infoRow, 6);
+            lv_obj_set_width(infoRow, LV_PCT(100));
+            lv_obj_t* batLbl = lv_label_create(infoRow);
+            String batPh = String("{heat_") + r.key + "_battery}";
+            String batTxt = _resolveAndRegister(batLbl, batPh.c_str());
+            lv_label_set_text(batLbl, (String("Bat ") + batTxt).c_str());
+            lv_hlp_set_text_color(batLbl, lv_hlp_hex(0xD1D5DB));
+            lv_hlp_set_font(batLbl, lv_hlp_font_ex(12, false));
+            lv_hlp_flex_grow(batLbl, 1);
+
+            lv_obj_t* tgtLbl = lv_label_create(infoRow);
+            String tgtPh = String("{heat_") + r.key + "_target}";
+            String tgtTxt = _resolveAndRegister(tgtLbl, tgtPh.c_str());
+            lv_label_set_text(tgtLbl, (String("Set ") + tgtTxt).c_str());
+            lv_hlp_set_text_color(tgtLbl, lv_hlp_hex(0xE5E7EB));
+            lv_hlp_set_font(tgtLbl, lv_hlp_font_ex(12, true));
 
             HeatToggleCtx* ctx = new HeatToggleCtx();
-            ctx->base = String(r.key); ctx->st = st; ctx->sw = sw; ctx->swLbl = swLbl;
+            ctx->base = String(r.key); ctx->sw = sw; ctx->swLbl = swLbl;
             lv_obj_add_event_cb(sw, [](lv_event_t* e){
                 HeatToggleCtx* ctx = (HeatToggleCtx*)lv_event_get_user_data(e);
                 lv_obj_t* btn = lv_event_get_target(e);
@@ -611,7 +626,6 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
                 while (client.connected() && millis() - t0 < 1200) while (client.available()) client.read();
                 client.stop();
                 // optimistic UI update immediately after command dispatch
-                lv_label_set_text(ctx->st, nextOn ? "Acceso" : "Spento");
                 lv_hlp_set_bg(ctx->sw, nextOn ? lv_hlp_hex(0x22C55E) : lv_hlp_hex(0x9CA3AF));
                 lv_obj_set_style_border_color(ctx->sw, nextOn ? lv_hlp_hex(0x39FF14) : lv_hlp_hex(0x374151), 0);
                 lv_obj_set_style_border_width(ctx->sw, 2, 0);
@@ -620,13 +634,12 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
                 ctx->pendingUntilMs = millis() + 20000;
             }, LV_EVENT_CLICKED, ctx);
 
-            _engine.registerTrend(key.c_str(), [st, sw, swLbl, ctx](const String& v){
+            _engine.registerTrend(key.c_str(), [sw, swLbl, ctx](const String& v){
                 bool on = (v == "Acceso");
                 uint32_t nowMs = millis();
                 if (nowMs < ctx->pendingUntilMs && on != ctx->pendingOn) {
                     return; // ignore stale bounce-back
                 }
-                lv_label_set_text(st, v.c_str());
                 if (on) {
                     lv_hlp_set_bg(sw, lv_hlp_hex(0x22C55E));
                     lv_obj_set_style_border_color(sw, lv_hlp_hex(0x39FF14), 0);
