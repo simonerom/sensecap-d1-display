@@ -535,7 +535,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
         lv_hlp_flex_row(rr, 8);
         lv_obj_set_style_flex_cross_place(rr, LV_FLEX_ALIGN_START, 0);
         lv_obj_set_width(rr, LV_PCT(100));
-        lv_obj_set_height(rr, 116);
+        lv_obj_set_height(rr, 148);
         lv_obj_clear_flag(rr, LV_OBJ_FLAG_SCROLLABLE);
 
         for (int j = i; j < i + 2 && j < 5; ++j) {
@@ -547,7 +547,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_obj_set_style_flex_cross_place(card, LV_FLEX_ALIGN_START, 0);
             lv_obj_set_width(card, LV_SIZE_CONTENT);
             lv_hlp_flex_grow(card, 1);
-            lv_obj_set_height(card, 112);
+            lv_obj_set_height(card, 144);
             lv_hlp_set_pad_all(card, 8);
             lv_obj_set_style_border_color(card, lv_hlp_hex(0xFFFFFF), 0);
             lv_obj_set_style_border_width(card, 1, 0);
@@ -589,24 +589,24 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_hlp_set_text_color(swLbl, lv_color_white());
             lv_hlp_set_font(swLbl, lv_hlp_font_ex(8, true));
 
-            // Telemetry line: battery + target temperature
-            lv_obj_t* infoRow = lv_hlp_obj(card);
-            lv_hlp_flex_row(infoRow, 6);
-            lv_obj_set_width(infoRow, LV_PCT(100));
-            lv_obj_t* batLbl = lv_label_create(infoRow);
+            // Telemetry lines (home-card style: stacked, always visible)
+            lv_obj_t* batLbl = lv_label_create(card);
             String batPh = String("{heat_") + r.key + "_battery}";
             String batTxt = _resolveAndRegister(batLbl, batPh.c_str());
             lv_label_set_text(batLbl, (String("Bat ") + batTxt).c_str());
             lv_hlp_set_text_color(batLbl, lv_hlp_hex(0xD1D5DB));
             lv_hlp_set_font(batLbl, lv_hlp_font_ex(12, false));
-            lv_hlp_flex_grow(batLbl, 1);
+            lv_obj_set_width(batLbl, LV_PCT(100));
+            lv_obj_set_style_text_align(batLbl, LV_TEXT_ALIGN_LEFT, 0);
 
-            lv_obj_t* tgtLbl = lv_label_create(infoRow);
+            lv_obj_t* tgtLbl = lv_label_create(card);
             String tgtPh = String("{heat_") + r.key + "_target}";
             String tgtTxt = _resolveAndRegister(tgtLbl, tgtPh.c_str());
             lv_label_set_text(tgtLbl, (String("Set ") + tgtTxt).c_str());
             lv_hlp_set_text_color(tgtLbl, lv_hlp_hex(0xE5E7EB));
             lv_hlp_set_font(tgtLbl, lv_hlp_font_ex(12, true));
+            lv_obj_set_width(tgtLbl, LV_PCT(100));
+            lv_obj_set_style_text_align(tgtLbl, LV_TEXT_ALIGN_LEFT, 0);
 
             HeatToggleCtx* ctx = new HeatToggleCtx();
             ctx->base = String(r.key); ctx->sw = sw; ctx->swLbl = swLbl;
