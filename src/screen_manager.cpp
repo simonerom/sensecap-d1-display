@@ -238,18 +238,18 @@ void ScreenManager::postGoToSettings() {
 
 
 void ScreenManager::navigateNextPageCyclic() {
-    if      (_currentPage == PageId::Home)    _navigateTo(PageId::Calendar);
-    else if (_currentPage == PageId::Calendar)_navigateTo(PageId::Clock);
-    else if (_currentPage == PageId::Clock)   _navigateTo(PageId::Heating);
-    else                                       _navigateTo(PageId::Home); // Heating/Settings -> Home
+    if      (_currentPage == PageId::Home)    _navigateTo(PageId::Calendar, false);
+    else if (_currentPage == PageId::Calendar)_navigateTo(PageId::Clock, false);
+    else if (_currentPage == PageId::Clock)   _navigateTo(PageId::Heating, false);
+    else                                       _navigateTo(PageId::Home, false); // Heating/Settings -> Home
 }
 
 void ScreenManager::navigatePrevPageCyclic() {
-    if      (_currentPage == PageId::Home)     _navigateTo(PageId::Heating);
-    else if (_currentPage == PageId::Heating)  _navigateTo(PageId::Clock);
-    else if (_currentPage == PageId::Clock)    _navigateTo(PageId::Calendar);
-    else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Home);
-    else                                        _navigateTo(PageId::Home); // Settings -> Home
+    if      (_currentPage == PageId::Home)     _navigateTo(PageId::Heating, false);
+    else if (_currentPage == PageId::Heating)  _navigateTo(PageId::Clock, false);
+    else if (_currentPage == PageId::Clock)    _navigateTo(PageId::Calendar, false);
+    else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Home, false);
+    else                                        _navigateTo(PageId::Home, false); // Settings -> Home
 }
 
 bool ScreenManager::consumeRefreshRequest() {
@@ -369,14 +369,14 @@ void ScreenManager::_processGesture() {
                 if (_swipeAccX < 0) {
                     // Swipe left (finger moved left) → go to next page (right)
                     if      (_currentPage == PageId::Settings) _navigateTo(PageId::Home);
-                    else if (_currentPage == PageId::Home)     _navigateTo(PageId::Calendar);
-                    else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Clock);
-                    else if (_currentPage == PageId::Clock)    _navigateTo(PageId::Heating);
+                    else if (_currentPage == PageId::Home)     _navigateTo(PageId::Calendar, false);
+                    else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Clock, false);
+                    else if (_currentPage == PageId::Clock)    _navigateTo(PageId::Heating, false);
                 } else {
                     // Swipe right (finger moved right) → go to previous page (left)
-                    if      (_currentPage == PageId::Heating) _navigateTo(PageId::Clock);
-                    else if (_currentPage == PageId::Clock)    _navigateTo(PageId::Calendar);
-                    else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Home);
+                    if      (_currentPage == PageId::Heating) _navigateTo(PageId::Clock, false);
+                    else if (_currentPage == PageId::Clock)    _navigateTo(PageId::Calendar, false);
+                    else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Home, false);
                     else if (_currentPage == PageId::Home)     _navigateTo(PageId::Settings);
                 }
             } else if (ay > ax * SWIPE_AXIS_RATIO) {
