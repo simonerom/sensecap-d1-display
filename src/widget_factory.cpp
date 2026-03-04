@@ -456,7 +456,9 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
 
     auto mkBtn = [](lv_obj_t* par, const char* txt, const String& cmd, uint32_t bgHex, uint32_t txtHex) {
         lv_obj_t* b = lv_btn_create(par);
-        lv_obj_set_size(b, LV_PCT(48), 44);
+        lv_obj_set_height(b, 44);
+        lv_obj_set_width(b, LV_SIZE_CONTENT);
+        lv_hlp_flex_grow(b, 1);
         lv_hlp_set_bg(b, lv_hlp_hex(bgHex));
         lv_hlp_set_radius(b, 10);
         lv_hlp_set_border_none(b);
@@ -516,6 +518,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
     for (int i = 0; i < 5; i += 2) {
         lv_obj_t* rr = lv_hlp_obj(col);
         lv_hlp_flex_row(rr, 8);
+        lv_obj_set_style_flex_cross_place(rr, LV_FLEX_ALIGN_START, 0);
         lv_obj_set_width(rr, LV_PCT(100));
 
         for (int j = i; j < i + 2 && j < 5; ++j) {
@@ -523,7 +526,8 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_obj_t* card = lv_hlp_card(rr, lv_hlp_hex(0xFFFFFF), 12, 0);
             lv_obj_set_style_bg_opa(card, LV_OPA_30, 0);
             lv_hlp_flex_col(card, 6);
-            lv_obj_set_width(card, LV_PCT(48));
+            lv_obj_set_width(card, LV_SIZE_CONTENT);
+            lv_hlp_flex_grow(card, 1);
             lv_obj_set_height(card, LV_SIZE_CONTENT);
             lv_hlp_set_pad_all(card, 10);
 
