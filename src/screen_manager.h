@@ -89,8 +89,10 @@ public:
     void postHideOverlay();
     void postGoToSettings();
 
-    // Check and clear the refresh request flag (polled by taskNetwork).
+    // Check and clear the pull-to-refresh request flag (polled by taskNetwork).
     bool consumeRefreshRequest();
+    // Check and clear explicit Home message refresh request (Update tap).
+    bool consumeHomeRefreshRequest();
 
     // Apply touch calibration immediately (called from setup() after NVS load).
     void applyCalibration(const TouchCalibration& cal);
@@ -123,10 +125,12 @@ private:
     lv_obj_t* _overlaySpinner = nullptr;
     lv_obj_t* _overlayBtn     = nullptr;
     bool      _overlayVisible = false;
+    bool      _overlayGoSettingsOnDismiss = false;
 
     // ---- Pull-to-refresh ----
     lv_obj_t* _refreshSpinner = nullptr;
     bool      _refreshRequested = false;
+    bool      _homeRefreshRequested = false;
     bool      _refreshSpinnerVisible = false;
 
     // ---- Gesture state ----

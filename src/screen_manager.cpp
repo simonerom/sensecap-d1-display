@@ -239,6 +239,11 @@ bool ScreenManager::consumeRefreshRequest() {
     return false;
 }
 
+bool ScreenManager::consumeHomeRefreshRequest() {
+    if (_homeRefreshRequested) { _homeRefreshRequested = false; return true; }
+    return false;
+}
+
 void ScreenManager::applyCalibration(const TouchCalibration& cal) {
     _settingsPage.applyCalibration(cal);
 }
@@ -352,12 +357,20 @@ void ScreenManager::_processGesture() {
             } else if (ay > ax * SWIPE_AXIS_RATIO) {
                 // Vertical swipe
                 if (_swipeAccY > 0) {
-                    // Swipe down from top → pull-to-refresh
-                    // Only trigger from data pages, not settings
+                    // Swipe down from top → pull-to-refresh (data only)
                     if (_currentPage != PageId::Settings) {
                         _refreshRequested = true;
                         _showRefreshSpinner();
                     }
+                }
+            }
+        } else {
+            // Tap gesture (no swipe): Home page "update" hotspot (right side of status row)
+            if (_currentPage == PageId::Home && dt <= 1500 && ax < 50 && ay < 50) {
+                // Update tap hotspot (very permissive): right half of home status area
+                if (_swipeTouchY >= 250 && _swipeTouchY <= 430 && _swipeTouchX >= 170) {
+                    _homeRefreshRequested = true;
+                    _showRefreshSpinner();
                 }
             }
         }
@@ -422,6 +435,7 @@ void ScreenManager::_showConnecting(const char* ssid) {
     lv_obj_align(_overlayMsg, LV_ALIGN_CENTER, 0, 50);
     lv_obj_clear_flag(_overlayScreen, LV_OBJ_FLAG_HIDDEN);
     _overlayVisible = true;
+    _overlayGoSettingsOnDismiss = false;
 }
 
 void ScreenManager::_showError(const char* msg) {
@@ -432,6 +446,7 @@ void ScreenManager::_showError(const char* msg) {
     lv_obj_clear_flag(_overlayBtn, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(_overlayScreen, LV_OBJ_FLAG_HIDDEN);
     _overlayVisible = true;
+    _overlayGoSettingsOnDismiss = (msg && strncmp(msg, "Data error", 10) == 0);
 }
 
 void ScreenManager::_hideOverlay() {
@@ -473,7 +488,11 @@ void ScreenManager::_minuteTimerCb(lv_timer_t* t) {
 // =============================================================================
 void ScreenManager::_onOverlayDismiss(lv_event_t* e) {
     ScreenManager* self = (ScreenManager*)lv_event_get_user_data(e);
-    if (self) self->_hideOverlay();
+    if (!self) return;
+    bool goSettings = self->_overlayGoSettingsOnDismiss;
+    self->_hideOverlay();
+    self->_overlayGoSettingsOnDismiss = false;
+    if (goSettings) self->goToSettings();
 }
 
 void ScreenManager::_secondTimerCb(lv_timer_t* t) {
