@@ -64,7 +64,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.74"
+SPEC_VERSION = "1.3.75"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -80,6 +80,41 @@ CACHE_TTL    = 60  # seconds
 _home_message_cache = None
 _home_message_ai = False
 _home_message_generated_at = None
+_HOME_CACHE_FILE = os.path.join(os.path.dirname(__file__), "home_message_cache.json")
+
+
+def _save_home_message_cache():
+    try:
+        if not _home_message_cache or not _home_message_generated_at:
+            return
+        payload = {
+            "message": _home_message_cache,
+            "is_ai": bool(_home_message_ai),
+            "generated_ts": int(_home_message_generated_at.timestamp()),
+        }
+        with open(_HOME_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"[home-cache] save error: {e}")
+
+
+def _load_home_message_cache():
+    global _home_message_cache, _home_message_ai, _home_message_generated_at
+    try:
+        if not os.path.exists(_HOME_CACHE_FILE):
+            return
+        with open(_HOME_CACHE_FILE, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        msg = (payload.get("message") or "").strip()
+        ts = int(payload.get("generated_ts") or 0)
+        if not msg or ts <= 0:
+            return
+        _home_message_cache = msg
+        _home_message_ai = bool(payload.get("is_ai", False))
+        _home_message_generated_at = datetime.fromtimestamp(ts, TZ)
+        print(f"[home-cache] loaded ({_home_message_generated_at.isoformat()})")
+    except Exception as e:
+        print(f"[home-cache] load error: {e}")
 
 
 def _refresh_cache():
@@ -776,6 +811,7 @@ def _home_message_get(now, weather, news, crypto, events, curiosity, force=False
         _home_message_cache = msg
         _home_message_ai = is_ai
         _home_message_generated_at = datetime.now(TZ)
+        _save_home_message_cache()
     return _home_message_cache, _home_message_ai
 
 
@@ -1057,6 +1093,7 @@ if __name__ == "__main__":
     print(f"   http://0.0.0.0:{PORT}/layout.xml")
     print(f"   http://0.0.0.0:{PORT}/health")
     print(f"   Ctrl+C to stop\n")
+    _load_home_message_cache()
     _schedule_refresh()  # start background cache refresh
     try:
         server.serve_forever()
