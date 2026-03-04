@@ -454,6 +454,8 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
 lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& attrs) {
     (void)attrs;
 
+    struct HeatToggleCtx { String base; lv_obj_t* st; lv_obj_t* sw; lv_obj_t* swLbl; };
+
     auto sendCmd = [](const String& cmd) {
         AppSettings s{}; SettingsManager sm; sm.load(s);
         String host = s.serverHost.length() ? s.serverHost : DATA_ENDPOINT_HOST_DEFAULT;
@@ -596,10 +598,10 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_hlp_set_text_color(swLbl, lv_color_white());
             lv_hlp_set_font(swLbl, lv_hlp_font_ex(12, true));
 
-            String* cmdBase = new String(r.key);
+            HeatToggleCtx* ctx = new HeatToggleCtx{String(r.key), st, sw, swLbl};
             lv_obj_add_event_cb(sw, [](lv_event_t* e){
+                HeatToggleCtx* ctx = (HeatToggleCtx*)lv_event_get_user_data(e);
                 lv_obj_t* btn = lv_event_get_target(e);
-                String* base = (String*)lv_event_get_user_data(e);
                 bool isOn = lv_obj_get_style_bg_color(btn, 0).full == lv_hlp_hex(0x22C55E).full;
                 bool nextOn = !isOn;
                 AppSettings s{}; SettingsManager sm; sm.load(s);
@@ -607,12 +609,18 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
                 uint16_t port = s.serverPort ? s.serverPort : DATA_ENDPOINT_PORT_DEFAULT;
                 WiFiClient client;
                 if (!client.connect(host.c_str(), port)) return;
-                String path = "/heating/action?cmd=" + *base + (nextOn ? "_on" : "_off");
+                String path = "/heating/action?cmd=" + ctx->base + (nextOn ? "_on" : "_off");
                 client.print(String("GET ") + path + " HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n");
                 uint32_t t0 = millis();
                 while (client.connected() && millis() - t0 < 1200) while (client.available()) client.read();
                 client.stop();
-            }, LV_EVENT_CLICKED, cmdBase);
+                // optimistic UI update immediately after command dispatch
+                lv_label_set_text(ctx->st, nextOn ? "Acceso" : "Spento");
+                lv_hlp_set_bg(ctx->sw, nextOn ? lv_hlp_hex(0x22C55E) : lv_hlp_hex(0x9CA3AF));
+                lv_obj_set_style_border_color(ctx->sw, nextOn ? lv_hlp_hex(0x39FF14) : lv_hlp_hex(0x374151), 0);
+                lv_obj_set_style_border_width(ctx->sw, 2, 0);
+                lv_label_set_text(ctx->swLbl, nextOn ? "ON" : "OFF");
+            }, LV_EVENT_CLICKED, ctx);
 
             _engine.registerTrend(key.c_str(), [st, sw, swLbl](const String& v){
                 lv_label_set_text(st, v.c_str());
