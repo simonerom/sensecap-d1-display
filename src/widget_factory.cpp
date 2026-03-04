@@ -467,10 +467,11 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
         client.stop();
     };
 
-    auto mkBtn = [&](lv_obj_t* par, const char* txt, const String& cmd, uint32_t bgHex, uint32_t txtHex, int h, bool grow) {
+    auto mkBtn = [&](lv_obj_t* par, const char* txt, const String& cmd, uint32_t bgHex, uint32_t txtHex, int h) {
         lv_obj_t* b = lv_btn_create(par);
         lv_obj_set_height(b, h);
-        if (grow) { lv_obj_set_width(b, LV_SIZE_CONTENT); lv_hlp_flex_grow(b, 1); }
+        lv_obj_set_width(b, LV_SIZE_CONTENT);
+        lv_hlp_flex_grow(b, 1);
         lv_hlp_set_bg(b, lv_hlp_hex(bgHex));
         lv_hlp_set_radius(b, 10);
         lv_hlp_set_border_none(b);
@@ -500,11 +501,12 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
     lv_hlp_flex_col(col, 10);
     lv_obj_set_width(col, LV_PCT(100));
     lv_obj_set_height(col, LV_SIZE_CONTENT);
+    lv_obj_clear_flag(col, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Title row
     lv_obj_t* tr = lv_hlp_obj(col);
     lv_hlp_flex_row(tr, 6);
     lv_obj_set_width(tr, LV_PCT(100));
+    lv_obj_clear_flag(tr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_t* title = lv_hlp_label(tr, "Riscaldamento", lv_hlp_hex(0x93C5FD), 22);
     lv_hlp_set_font(title, lv_hlp_font_ex(22, true));
     lv_hlp_flex_grow(title, 1);
@@ -515,12 +517,12 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
     lv_hlp_set_text_color(gs, lv_hlp_hex(0xD9D9EE));
     lv_hlp_set_font(gs, lv_hlp_font_ex(16, true));
 
-    // Global controls
     lv_obj_t* growRow = lv_hlp_obj(col);
     lv_hlp_flex_row(growRow, 8);
     lv_obj_set_width(growRow, LV_PCT(100));
-    mkBtn(growRow, "Accendi tutto", "all_on", 0x2563EB, 0xFFFFFF, 44, true);
-    mkBtn(growRow, "Spegni tutto", "all_off", 0xFFFFFF, 0x1A1A2E, 44, true);
+    lv_obj_clear_flag(growRow, LV_OBJ_FLAG_SCROLLABLE);
+    mkBtn(growRow, "Accendi tutto", "all_on", 0x2563EB, 0xFFFFFF, 44);
+    mkBtn(growRow, "Spegni tutto", "all_off", 0xFFFFFF, 0x1A1A2E, 44);
 
     struct R { const char* key; const char* title; } rooms[] = {
         {"sala", "Sala"}, {"cucina", "Cucina"}, {"camera", "Camera"}, {"bagno", "Bagno"}, {"studio", "Studio"}
@@ -531,43 +533,81 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
         lv_hlp_flex_row(rr, 8);
         lv_obj_set_style_flex_cross_place(rr, LV_FLEX_ALIGN_START, 0);
         lv_obj_set_width(rr, LV_PCT(100));
+        lv_obj_clear_flag(rr, LV_OBJ_FLAG_SCROLLABLE);
 
         for (int j = i; j < i + 2 && j < 5; ++j) {
             auto &r = rooms[j];
             lv_obj_t* card = lv_hlp_card(rr, lv_hlp_hex(0xFFFFFF), 12, 0);
             lv_obj_set_style_bg_opa(card, LV_OPA_30, 0);
-            lv_hlp_flex_col(card, 8);
+            lv_hlp_flex_col(card, 6);
             lv_obj_set_width(card, LV_SIZE_CONTENT);
             lv_hlp_flex_grow(card, 1);
-            lv_obj_set_height(card, 116);
+            lv_obj_set_height(card, 98);
             lv_hlp_set_pad_all(card, 10);
+            lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
             lv_obj_t* hr = lv_hlp_obj(card);
             lv_hlp_flex_row(hr, 6);
             lv_obj_set_width(hr, LV_PCT(100));
+            lv_obj_clear_flag(hr, LV_OBJ_FLAG_SCROLLABLE);
+
             lv_obj_t* name = lv_hlp_label(hr, r.title, lv_hlp_hex(0xCCCCEE), 15);
             lv_hlp_set_font(name, lv_hlp_font_ex(15, true));
             lv_hlp_flex_grow(name, 1);
 
             lv_obj_t* st = lv_label_create(hr);
-            String ph = String("{heat_") + r.key + "}";
+            String key = String("heat_") + r.key;
+            String ph = String("{") + key + "}";
             String stTxt = _resolveAndRegister(st, ph.c_str());
             lv_label_set_text(st, stTxt.c_str());
             lv_hlp_set_text_color(st, lv_color_white());
             lv_hlp_set_font(st, lv_hlp_font_ex(14, true));
 
-            lv_obj_t* spacer = lv_hlp_obj(card);
-            lv_obj_set_height(spacer, 1);
-            lv_hlp_flex_grow(spacer, 1);
+            lv_obj_t* swRow = lv_hlp_obj(card);
+            lv_hlp_flex_row(swRow, 0);
+            lv_obj_set_width(swRow, LV_PCT(100));
+            lv_obj_set_style_flex_main_place(swRow, LV_FLEX_ALIGN_CENTER, 0);
+            lv_obj_clear_flag(swRow, LV_OBJ_FLAG_SCROLLABLE);
 
-            lv_obj_t* br = lv_hlp_obj(card);
-            lv_hlp_flex_row(br, 6);
-            lv_obj_set_width(br, LV_PCT(100));
-            mkBtn(br, "ON", String(r.key) + "_on", 0x22C55E, 0xFFFFFF, 34, true);
-            mkBtn(br, "OFF", String(r.key) + "_off", 0xEF4444, 0xFFFFFF, 34, true);
+            lv_obj_t* sw = lv_btn_create(swRow);
+            lv_obj_set_size(sw, 34, 34);
+            lv_hlp_set_radius(sw, 17);
+            lv_hlp_set_border_none(sw);
+            lv_obj_t* swLbl = lv_label_create(sw);
+            lv_obj_center(swLbl);
+
+            bool isOn = (stTxt == "Acceso");
+            lv_hlp_set_bg(sw, isOn ? lv_hlp_hex(0x22C55E) : lv_hlp_hex(0x64748B));
+            lv_label_set_text(swLbl, isOn ? "ON" : "OFF");
+            lv_hlp_set_text_color(swLbl, lv_color_white());
+            lv_hlp_set_font(swLbl, lv_hlp_font_ex(12, true));
+
+            String* cmdBase = new String(r.key);
+            lv_obj_add_event_cb(sw, [](lv_event_t* e){
+                lv_obj_t* btn = lv_event_get_target(e);
+                String* base = (String*)lv_event_get_user_data(e);
+                bool isOn = lv_obj_get_style_bg_color(btn, 0).full == lv_hlp_hex(0x22C55E).full;
+                bool nextOn = !isOn;
+                AppSettings s{}; SettingsManager sm; sm.load(s);
+                String host = s.serverHost.length() ? s.serverHost : DATA_ENDPOINT_HOST_DEFAULT;
+                uint16_t port = s.serverPort ? s.serverPort : DATA_ENDPOINT_PORT_DEFAULT;
+                WiFiClient client;
+                if (!client.connect(host.c_str(), port)) return;
+                String path = "/heating/action?cmd=" + *base + (nextOn ? "_on" : "_off");
+                client.print(String("GET ") + path + " HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n");
+                uint32_t t0 = millis();
+                while (client.connected() && millis() - t0 < 1200) while (client.available()) client.read();
+                client.stop();
+            }, LV_EVENT_CLICKED, cmdBase);
+
+            _engine.registerTrend(key.c_str(), [st, sw, swLbl](const String& v){
+                lv_label_set_text(st, v.c_str());
+                bool on = (v == "Acceso");
+                lv_hlp_set_bg(sw, on ? lv_hlp_hex(0x22C55E) : lv_hlp_hex(0x64748B));
+                lv_label_set_text(swLbl, on ? "ON" : "OFF");
+            });
         }
     }
-
     return col;
 }
 
