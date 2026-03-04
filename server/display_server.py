@@ -886,6 +886,7 @@ def _home_message_get(now, weather, news, crypto, events, curiosity, force=False
 def build_data():
     now     = datetime.now(TZ)
     weather = get_weather()
+    heating = get_heating()
     crypto  = get_crypto()
     news     = get_news()
     events   = get_events()
@@ -940,6 +941,8 @@ def build_data():
         "outdoor_hum":     weather["outdoor_hum"],
         "condition":       weather["condition"],
         "condition_icon":  weather["condition_icon"],
+
+        **heating,
 
         "btc_symbol": crypto["btc"]["symbol"],
         "btc_price":  crypto["btc"]["price"],
