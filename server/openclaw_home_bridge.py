@@ -48,7 +48,7 @@ def main():
             "Riformatta il testo seguente per home dashboard in markdown-lite.\n"
             "Pipeline: il testo è già de-emoji, NON reintrodurre emoji.\n"
             "Regole obbligatorie: mantieni i fatti, niente invenzioni, niente tabelle, niente code block, italiano naturale.\n"
-            "Usa # e ## per intestazioni, '-' per liste vere, **parola** per label ovvie, *parola* per parole o frasi da evidenziare.\n"
+            "Usa #, ##, ### per intestazioni, '-' per liste vere, non creare liste dove si tratta di un paragrafo di testo e non una lista. **parola** per label ovvie, *parola* per parole o frasi da evidenziare.\n"
             "Usa colori inline nel formato {#RRGGBB}parola{/}. Osa il colore per concetti chiave: azzurro #93C5FD (sezioni), verde #22C55E (positivo), rosso #EF4444 (negativo), ambra #F59E0B (warning).\n"
             "Separa bene sezioni e paragrafi con righe vuote per leggibilità su schermo piccolo.\n"
             "Usa solo caratteri ASCII/latin semplici: niente emoji, niente simboli decorativi.\n"

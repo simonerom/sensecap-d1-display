@@ -64,7 +64,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.80"
+SPEC_VERSION = "1.3.81"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -192,6 +192,27 @@ def caldav_password():
          "-s","icloud-caldav-openclaw","-w"],
         capture_output=True, text=True)
     return r.stdout.strip()
+
+
+def get_presence():
+    try:
+        out = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=2).stdout.lower()
+    except Exception:
+        out = ""
+    def present(mac):
+        m = mac.lower()
+        return (m in out) and (f"({m})" not in out or "incomplete" not in out)
+    simone = present("ec:28:d3:1b:9d:77")
+    roberta = present("88:1e:5a:a3:2f:57")
+    names = []
+    if simone: names.append("Simone")
+    if roberta: names.append("Roberta")
+    return {
+        "in_home": names,
+        "in_home_text": ", ".join(names) if names else "Nessuno",
+        "simone_home": simone,
+        "roberta_home": roberta,
+    }
 
 def get_weather():
     try:
@@ -480,6 +501,7 @@ def get_events():
 
 # ---- Heating (Shelly BluTRV) ----
 _heating_last_action_ts = 0
+_calendar_offset_months = 0
 
 HEAT_ROOMS = {
     "sala":   ("192.168.1.33", 200),
@@ -508,6 +530,13 @@ def _heat_set_target(ip, rid, target_c):
         return True
     except Exception:
         return False
+
+
+def _add_months(dt, months):
+    y = dt.year + (dt.month - 1 + months) // 12
+    m = (dt.month - 1 + months) % 12 + 1
+    d = min(dt.day, calendar.monthrange(y, m)[1])
+    return dt.replace(year=y, month=m, day=d)
 
 def get_heating():
     out = {}
@@ -669,9 +698,13 @@ def _generate_home_message_bridge(now, weather, news, crypto, events, curiosity)
     if not cmd:
         return None
 
+    heating = get_heating()
+    presence = get_presence()
     payload = {
         "now": now.isoformat(),
         "weather": weather,
+        "heating": heating,
+        "presence": presence,
         "news": news,
         "crypto": crypto,
         "events": events[:10],
@@ -992,12 +1025,12 @@ def build_data():
         "weekday_long": DAYS_IT_FULL[now.weekday()],
         "year":        str(now.year),
         "clock_date":  f"{DAYS_IT_FULL[now.weekday()]}, {now.day} {MONTHS_IT[now.month-1]} {now.year}",
-        "cal_header":  f"{MONTHS_IT[now.month-1]} {now.year}",
+        "cal_header":  f"{MONTHS_IT[cal_month-1]} {cal_year}",
         "cal_year":     str(now.year),
         "cal_month":    str(now.month),
         "cal_today":    str(now.day),
-        "cal_startdow": str(_cal_mod.monthrange(now.year, now.month)[0]),
-        "cal_days":     str(_cal_mod.monthrange(now.year, now.month)[1]),
+        "cal_startdow": str(_cal_mod.monthrange(cal_year, cal_month)[0]),
+        "cal_days":     str(_cal_mod.monthrange(cal_year, cal_month)[1]),
         "voc":       "--",
         "co2":       "--",
         "alert":     "",
@@ -1067,6 +1100,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
   </screen>
 
   <screen id="calendar" bg="#F0F0F6" pad="10">
+    <calendar_nav/>
     <!-- Header: mese a sx, temp int/est a dx -->
     <row gap="4" h="28" w="100%">
       <label text="{cal_header}" font="14" bold="true" color="#1A1A2E" flex="1"/>
@@ -1155,6 +1189,20 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/health":
             self.send_json({"status": "ok", "version": SPEC_VERSION,
                             "timestamp": now.isoformat()})
+
+        elif self.path.startswith("/calendar/nav"):
+            print(f"[{ts}] GET /calendar/nav")
+            global _calendar_offset_months
+            try:
+                from urllib.parse import urlparse, parse_qs
+                q = parse_qs(urlparse(self.path).query)
+                cmd = (q.get("cmd", [""])[0])
+                if cmd == "prev": _calendar_offset_months -= 1
+                elif cmd == "next": _calendar_offset_months += 1
+                elif cmd == "today": _calendar_offset_months = 0
+                self.send_json({"ok": True, "offset": _calendar_offset_months}, status=200)
+            except Exception:
+                self.send_json({"ok": False}, status=500)
 
         elif self.path.startswith("/heating/action"):
             print(f"[{ts}] GET /heating/action")

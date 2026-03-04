@@ -59,6 +59,7 @@ private:
     lv_obj_t* _buildBigClock(lv_obj_t* parent, const AttrMap& attrs);
     lv_obj_t* _buildSettingsForm(lv_obj_t* parent);
     lv_obj_t* _buildHeatingControls(lv_obj_t* parent, const AttrMap& attrs);
+    lv_obj_t* _buildCalendarNav(lv_obj_t* parent, const AttrMap& attrs);
 
     // ---- Helpers ----
 
