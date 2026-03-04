@@ -45,6 +45,11 @@ static bool topBtnLast = true;
 static uint32_t topBtnLastChange = 0;
 static uint32_t topBtnClickCount = 0;
 static uint32_t topBtnFirstClickMs = 0;
+
+// Diagnostic: scan candidate GPIOs for physical top button transitions
+static const int BTN_SCAN_PINS[] = {16,17,18,21,38,41,42,45,46,47};
+static bool btnScanState[sizeof(BTN_SCAN_PINS)/sizeof(BTN_SCAN_PINS[0])] = {0};
+static uint32_t btnScanLastMs[sizeof(BTN_SCAN_PINS)/sizeof(BTN_SCAN_PINS[0])] = {0};
 static uint32_t heatFastUntilMs = 0;
 static uint32_t lastHeatActionTs = 0;
 
@@ -131,6 +136,16 @@ void taskSensor(void* pvParams) {
             if (topBtnClickCount >= 2) screenMgr.navigatePrevPageCyclic();
             else screenMgr.navigateNextPageCyclic();
             topBtnClickCount = 0;
+        }
+
+        // GPIO scan diagnostics (prints pin transitions to serial)
+        for (size_t i = 0; i < sizeof(BTN_SCAN_PINS)/sizeof(BTN_SCAN_PINS[0]); ++i) {
+            bool v = digitalRead(BTN_SCAN_PINS[i]);
+            if (v != btnScanState[i] && (now - btnScanLastMs[i]) > 25) {
+                btnScanState[i] = v;
+                btnScanLastMs[i] = now;
+                Serial.printf("[BTN_SCAN] GPIO%d -> %d\n", BTN_SCAN_PINS[i], (int)v);
+            }
         }
         if (now - lastMs >= SENSOR_POLL_MS) {
             lastMs = now;
