@@ -542,6 +542,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_obj_set_style_bg_opa(card, (lv_opa_t)140, 0);
             lv_hlp_flex_col(card, 6);
             lv_obj_set_style_flex_main_place(card, LV_FLEX_ALIGN_START, 0);
+            lv_obj_set_style_flex_cross_place(card, LV_FLEX_ALIGN_START, 0);
             lv_obj_set_width(card, LV_SIZE_CONTENT);
             lv_hlp_flex_grow(card, 1);
             lv_obj_set_height(card, 244);
@@ -575,14 +576,22 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_obj_clear_flag(swRow, LV_OBJ_FLAG_SCROLLABLE);
 
             lv_obj_t* sw = lv_btn_create(swRow);
-            lv_obj_set_size(sw, 34, 34);
+            // width ~2x height
+            lv_obj_set_size(sw, 68, 34);
             lv_hlp_set_radius(sw, 17);
-            lv_hlp_set_border_none(sw);
             lv_obj_t* swLbl = lv_label_create(sw);
             lv_obj_center(swLbl);
 
             bool isOn = (stTxt == "Acceso");
-            lv_hlp_set_bg(sw, isOn ? lv_hlp_hex(0x22C55E) : lv_hlp_hex(0x64748B));
+            if (isOn) {
+                lv_hlp_set_bg(sw, lv_hlp_hex(0x22C55E));           // green
+                lv_obj_set_style_border_color(sw, lv_hlp_hex(0x39FF14), 0); // electric green
+                lv_obj_set_style_border_width(sw, 2, 0);
+            } else {
+                lv_hlp_set_bg(sw, lv_hlp_hex(0x9CA3AF));           // gray
+                lv_obj_set_style_border_color(sw, lv_hlp_hex(0x374151), 0); // dark gray
+                lv_obj_set_style_border_width(sw, 2, 0);
+            }
             lv_label_set_text(swLbl, isOn ? "ON" : "OFF");
             lv_hlp_set_text_color(swLbl, lv_color_white());
             lv_hlp_set_font(swLbl, lv_hlp_font_ex(12, true));
@@ -608,7 +617,15 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             _engine.registerTrend(key.c_str(), [st, sw, swLbl](const String& v){
                 lv_label_set_text(st, v.c_str());
                 bool on = (v == "Acceso");
-                lv_hlp_set_bg(sw, on ? lv_hlp_hex(0x22C55E) : lv_hlp_hex(0x64748B));
+                if (on) {
+                    lv_hlp_set_bg(sw, lv_hlp_hex(0x22C55E));
+                    lv_obj_set_style_border_color(sw, lv_hlp_hex(0x39FF14), 0);
+                    lv_obj_set_style_border_width(sw, 2, 0);
+                } else {
+                    lv_hlp_set_bg(sw, lv_hlp_hex(0x9CA3AF));
+                    lv_obj_set_style_border_color(sw, lv_hlp_hex(0x374151), 0);
+                    lv_obj_set_style_border_width(sw, 2, 0);
+                }
                 lv_label_set_text(swLbl, on ? "ON" : "OFF");
             });
         }
