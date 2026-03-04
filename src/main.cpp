@@ -43,9 +43,6 @@ static bool     firstFetch   = true;
 static const int TOP_BUTTON_PIN = 38; // physical top button (detected via BTN_SCAN)
 static bool topBtnLast = true;
 static uint32_t topBtnLastChange = 0;
-static uint32_t topBtnClickCount = 0;
-static uint32_t topBtnFirstClickMs = 0;
-static const uint32_t TOP_BUTTON_DBL_MS = 800;
 
 static uint32_t heatFastUntilMs = 0;
 static uint32_t lastHeatActionTs = 0;
@@ -118,34 +115,15 @@ void taskSensor(void* pvParams) {
 
         uint32_t now = millis();
 
-        // Top button click detection (debounced, count on PRESS edge)
+        // Top button: single click only, immediate next-page on press (no delay)
         bool btn = digitalRead(TOP_BUTTON_PIN);
         if (btn != topBtnLast && (now - topBtnLastChange) > 35) {
             topBtnLastChange = now;
             topBtnLast = btn;
-
             // INPUT_PULLUP: pressed == LOW
             if (!btn) {
-                if (topBtnClickCount == 0) {
-                    topBtnClickCount = 1;
-                    topBtnFirstClickMs = now;
-                } else if (topBtnClickCount == 1) {
-                    if ((now - topBtnFirstClickMs) <= TOP_BUTTON_DBL_MS) {
-                        screenMgr.navigatePrevPageCyclic();
-                        topBtnClickCount = 0;
-                    } else {
-                        // previous click expired; treat this as new first click
-                        screenMgr.navigateNextPageCyclic();
-                        topBtnClickCount = 1;
-                        topBtnFirstClickMs = now;
-                    }
-                }
+                screenMgr.navigateNextPageCyclic();
             }
-        }
-        // Single click: execute only after double-click window expires
-        if (topBtnClickCount == 1 && (now - topBtnFirstClickMs) > TOP_BUTTON_DBL_MS) {
-            screenMgr.navigateNextPageCyclic();
-            topBtnClickCount = 0;
         }
 
         if (now - lastMs >= SENSOR_POLL_MS) {
