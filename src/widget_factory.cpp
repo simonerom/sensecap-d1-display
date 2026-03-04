@@ -375,6 +375,20 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                         line.replace("**", "");
                         line.replace("*", "");
                         line.replace("_", "");
+
+                        // normalize color spans: {#RRGGBB}text{/} -> #RRGGBB text# (LVGL recolor)
+                        while (true) {
+                            int s = line.indexOf("{#");
+                            if (s < 0) break;
+                            int m = line.indexOf("}", s + 2);
+                            if (m < 0) break;
+                            int e = line.indexOf("{/}", m + 1);
+                            if (e < 0) break;
+                            String hex = line.substring(s + 2, m);
+                            String inner = line.substring(m + 1, e);
+                            String rep = "#" + hex + " " + inner + "#";
+                            line = line.substring(0, s) + rep + line.substring(e + 3);
+                        }
                     }
                     String text = cfg->bullet + line;
                     lv_obj_t* lbl = lv_label_create(c);
