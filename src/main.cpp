@@ -45,6 +45,7 @@ static bool topBtnLast = true;
 static uint32_t topBtnLastChange = 0;
 static uint32_t topBtnClickCount = 0;
 static uint32_t topBtnFirstClickMs = 0;
+static const uint32_t TOP_BUTTON_DBL_MS = 550;
 
 static uint32_t heatFastUntilMs = 0;
 static uint32_t lastHeatActionTs = 0;
@@ -126,11 +127,17 @@ void taskSensor(void* pvParams) {
             if (btn) {
                 if (topBtnClickCount == 0) topBtnFirstClickMs = now;
                 topBtnClickCount++;
+
+                // Double click: execute immediately on second release
+                if (topBtnClickCount >= 2 && (now - topBtnFirstClickMs) <= TOP_BUTTON_DBL_MS) {
+                    screenMgr.navigatePrevPageCyclic();
+                    topBtnClickCount = 0;
+                }
             }
         }
-        if (topBtnClickCount > 0 && (now - topBtnFirstClickMs) > 320) {
-            if (topBtnClickCount >= 2) screenMgr.navigatePrevPageCyclic();
-            else screenMgr.navigateNextPageCyclic();
+        // Single click: execute only after double-click window expires
+        if (topBtnClickCount == 1 && (now - topBtnFirstClickMs) > TOP_BUTTON_DBL_MS) {
+            screenMgr.navigateNextPageCyclic();
             topBtnClickCount = 0;
         }
 
