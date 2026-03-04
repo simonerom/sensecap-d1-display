@@ -587,7 +587,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             }
             lv_label_set_text(swLbl, isOn ? "ON" : "OFF");
             lv_hlp_set_text_color(swLbl, lv_color_white());
-            lv_hlp_set_font(swLbl, lv_hlp_font_ex(10, true));
+            lv_hlp_set_font(swLbl, lv_hlp_font_ex(8, true));
 
             // Telemetry line: battery + target temperature
             lv_obj_t* infoRow = lv_hlp_obj(card);
