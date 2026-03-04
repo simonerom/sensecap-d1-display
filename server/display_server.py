@@ -535,7 +535,7 @@ def _heat_set_target(ip, rid, target_c):
 def _add_months(dt, months):
     y = dt.year + (dt.month - 1 + months) // 12
     m = (dt.month - 1 + months) % 12 + 1
-    d = min(dt.day, calendar.monthrange(y, m)[1])
+    d = min(dt.day, _cal_mod.monthrange(y, m)[1])
     return dt.replace(year=y, month=m, day=d)
 
 def get_heating():
@@ -940,6 +940,9 @@ def _home_message_get(now, weather, news, crypto, events, curiosity, force=False
 
 def build_data():
     now     = datetime.now(TZ)
+    cal_ref = _add_months(now, _calendar_offset_months)
+    cal_year = cal_ref.year
+    cal_month = cal_ref.month
     weather = get_weather()
     heating = get_heating()
     crypto  = get_crypto()
@@ -964,7 +967,7 @@ def build_data():
                 if mn in date_part:
                     rest = date_part.replace(mn, "").strip()
                     day_num = int(rest.split(",")[0].split()[0])
-                    if mi + 1 == now.month:
+                    if mi + 1 == cal_month and now.year == cal_year:
                         ev_days.add(day_num)
                     break
         except Exception:
@@ -975,7 +978,7 @@ def build_data():
     hol_days = set()
     for day_num in range(1, 32):
         try:
-            dt = datetime(now.year, now.month, day_num).date()
+            dt = datetime(cal_year, cal_month, day_num).date()
             is_sunday = (dt.weekday() == 6)
             is_weekday_hol = is_italian_holiday(dt) and dt.weekday() < 5
             if is_sunday or is_weekday_hol:
@@ -1026,9 +1029,9 @@ def build_data():
         "year":        str(now.year),
         "clock_date":  f"{DAYS_IT_FULL[now.weekday()]}, {now.day} {MONTHS_IT[now.month-1]} {now.year}",
         "cal_header":  f"{MONTHS_IT[cal_month-1]} {cal_year}",
-        "cal_year":     str(now.year),
-        "cal_month":    str(now.month),
-        "cal_today":    str(now.day),
+        "cal_year":     str(cal_year),
+        "cal_month":    str(cal_month),
+        "cal_today":    str(now.day if (cal_year==now.year and cal_month==now.month) else 0),
         "cal_startdow": str(_cal_mod.monthrange(cal_year, cal_month)[0]),
         "cal_days":     str(_cal_mod.monthrange(cal_year, cal_month)[1]),
         "voc":       "--",
