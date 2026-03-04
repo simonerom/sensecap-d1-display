@@ -129,7 +129,12 @@ char* DataFetcher::fetchLayout(const String& cachedVersion, String& outVersion, 
         return nullptr;
     }
 
-    // Diagnostic: do NOT skip by version; always allow rebuild with latest layout.
+    // Skip rebuild when version is unchanged (prevents periodic UI redraw flicker)
+    if (!cachedVersion.isEmpty() && !serverVersion.isEmpty() && cachedVersion == serverVersion) {
+        _lastError = "";
+        DEBUG_PRINTF("[HTTP] Layout unchanged (version=%s), skip rebuild\n", serverVersion.c_str());
+        return nullptr;
+    }
 
     outLen = body.length();
     char* buf = (char*)heap_caps_malloc(outLen + 1, MALLOC_CAP_SPIRAM);
