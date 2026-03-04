@@ -123,7 +123,7 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
         if (delta < 0) delta = 0;
         char ageBuf[20];
         if (delta < 10) {
-            snprintf(ageBuf, sizeof(ageBuf), "adesso");
+            snprintf(ageBuf, sizeof(ageBuf), "--");
         } else if (delta < 120) {
             long rounded = (delta / 10) * 10;
             snprintf(ageBuf, sizeof(ageBuf), "%lds fa", rounded);
@@ -138,7 +138,7 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
         uint32_t elapsed = (millis() - _dataFetchedMs) / 1000;
         char ageBuf[16];
         if (elapsed < 10) {
-            snprintf(ageBuf, sizeof(ageBuf), "adesso");
+            snprintf(ageBuf, sizeof(ageBuf), "--");
         } else if (elapsed < 120) {
             uint32_t rounded = (elapsed / 10) * 10;
             snprintf(ageBuf, sizeof(ageBuf), "%us fa", rounded);
