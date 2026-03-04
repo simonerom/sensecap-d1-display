@@ -118,23 +118,23 @@ void taskSensor(void* pvParams) {
 
         uint32_t now = millis();
 
-        // Top button click detection (debounced)
+        // Top button click detection (debounced, count on PRESS edge)
         bool btn = digitalRead(TOP_BUTTON_PIN);
-        if (btn != topBtnLast && (now - topBtnLastChange) > 30) {
+        if (btn != topBtnLast && (now - topBtnLastChange) > 35) {
             topBtnLastChange = now;
             topBtnLast = btn;
-            // count on release (HIGH with pullup)
-            if (btn) {
+
+            // INPUT_PULLUP: pressed == LOW
+            if (!btn) {
                 if (topBtnClickCount == 0) {
                     topBtnClickCount = 1;
                     topBtnFirstClickMs = now;
                 } else if (topBtnClickCount == 1) {
                     if ((now - topBtnFirstClickMs) <= TOP_BUTTON_DBL_MS) {
-                        // valid double click
                         screenMgr.navigatePrevPageCyclic();
                         topBtnClickCount = 0;
                     } else {
-                        // second click arrived too late: execute previous single and start new sequence
+                        // previous click expired; treat this as new first click
                         screenMgr.navigateNextPageCyclic();
                         topBtnClickCount = 1;
                         topBtnFirstClickMs = now;
