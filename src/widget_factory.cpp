@@ -357,13 +357,17 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                         if (line.startsWith("- ")) line = String("• ") + line.substring(2);
 
                         // inline emphasis parsing (best-effort)
+                        bool isHeader = line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### ");
                         bool hasStrong = (line.indexOf("**") >= 0);
-                        bool wholeStrong = hasStrong && line.startsWith("**") && line.endsWith("**") && line.length() > 4;
                         bool hasEm = (!hasStrong && (line.indexOf("*") >= 0 || line.indexOf("_") >= 0));
-                        if (wholeStrong) {
+
+                        // Make bold visible for any **...** usage, not only whole-line strong
+                        if (hasStrong) {
                             localBold = true;
-                            localCol = lv_hlp_hex(0xFCA5A5);
-                        } else if (hasEm && !localBold) {
+                        }
+
+                        // Keep header color stable (do not override to red)
+                        if (!isHeader && hasEm && !localBold) {
                             localCol = lv_hlp_hex(0xD6D6EA);
                         }
 
