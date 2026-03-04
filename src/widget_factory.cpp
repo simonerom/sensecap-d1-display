@@ -537,13 +537,16 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
 
         for (int j = i; j < i + 2 && j < 5; ++j) {
             auto &r = rooms[j];
-            lv_obj_t* card = lv_hlp_card(rr, lv_hlp_hex(0xFFFFFF), 12, 0);
-            lv_obj_set_style_bg_opa(card, LV_OPA_30, 0);
+            lv_obj_t* card = lv_hlp_card(rr, lv_hlp_hex(0x000000), 12, 1);
+            lv_obj_set_style_bg_opa(card, (lv_opa_t)140, 0);
             lv_hlp_flex_col(card, 6);
             lv_obj_set_width(card, LV_SIZE_CONTENT);
             lv_hlp_flex_grow(card, 1);
-            lv_obj_set_height(card, 98);
+            lv_obj_set_height(card, LV_SIZE_CONTENT);
             lv_hlp_set_pad_all(card, 10);
+            lv_obj_set_style_border_color(card, lv_hlp_hex(0xFFFFFF), 0);
+            lv_obj_set_style_border_width(card, 1, 0);
+            lv_obj_set_style_border_opa(card, LV_OPA_30, 0);
             lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
             lv_obj_t* hr = lv_hlp_obj(card);
@@ -551,7 +554,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_obj_set_width(hr, LV_PCT(100));
             lv_obj_clear_flag(hr, LV_OBJ_FLAG_SCROLLABLE);
 
-            lv_obj_t* name = lv_hlp_label(hr, r.title, lv_hlp_hex(0xCCCCEE), 15);
+            lv_obj_t* name = lv_hlp_label(hr, r.title, lv_hlp_hex(0xE5E7EB), 15);
             lv_hlp_set_font(name, lv_hlp_font_ex(15, true));
             lv_hlp_flex_grow(name, 1);
 
