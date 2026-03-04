@@ -454,7 +454,7 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
 lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& attrs) {
     (void)attrs;
 
-    struct HeatToggleCtx { String base; lv_obj_t* st; lv_obj_t* sw; lv_obj_t* swLbl; };
+    struct HeatToggleCtx { String base; lv_obj_t* st; lv_obj_t* sw; lv_obj_t* swLbl; bool pendingOn=false; uint32_t pendingUntilMs=0; };
 
     auto sendCmd = [](const String& cmd) {
         AppSettings s{}; SettingsManager sm; sm.load(s);
@@ -598,7 +598,8 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_hlp_set_text_color(swLbl, lv_color_white());
             lv_hlp_set_font(swLbl, lv_hlp_font_ex(12, true));
 
-            HeatToggleCtx* ctx = new HeatToggleCtx{String(r.key), st, sw, swLbl};
+            HeatToggleCtx* ctx = new HeatToggleCtx();
+            ctx->base = String(r.key); ctx->st = st; ctx->sw = sw; ctx->swLbl = swLbl;
             lv_obj_add_event_cb(sw, [](lv_event_t* e){
                 HeatToggleCtx* ctx = (HeatToggleCtx*)lv_event_get_user_data(e);
                 lv_obj_t* btn = lv_event_get_target(e);
@@ -620,11 +621,17 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
                 lv_obj_set_style_border_color(ctx->sw, nextOn ? lv_hlp_hex(0x39FF14) : lv_hlp_hex(0x374151), 0);
                 lv_obj_set_style_border_width(ctx->sw, 2, 0);
                 lv_label_set_text(ctx->swLbl, nextOn ? "ON" : "OFF");
+                ctx->pendingOn = nextOn;
+                ctx->pendingUntilMs = millis() + 20000;
             }, LV_EVENT_CLICKED, ctx);
 
-            _engine.registerTrend(key.c_str(), [st, sw, swLbl](const String& v){
-                lv_label_set_text(st, v.c_str());
+            _engine.registerTrend(key.c_str(), [st, sw, swLbl, ctx](const String& v){
                 bool on = (v == "Acceso");
+                uint32_t nowMs = millis();
+                if (nowMs < ctx->pendingUntilMs && on != ctx->pendingOn) {
+                    return; // ignore stale bounce-back
+                }
+                lv_label_set_text(st, v.c_str());
                 if (on) {
                     lv_hlp_set_bg(sw, lv_hlp_hex(0x22C55E));
                     lv_obj_set_style_border_color(sw, lv_hlp_hex(0x39FF14), 0);
@@ -635,6 +642,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
                     lv_obj_set_style_border_width(sw, 2, 0);
                 }
                 lv_label_set_text(swLbl, on ? "ON" : "OFF");
+                if (on == ctx->pendingOn) ctx->pendingUntilMs = 0;
             });
         }
     }
