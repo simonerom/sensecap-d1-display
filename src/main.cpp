@@ -170,11 +170,19 @@ void taskNetwork(void* pvParams) {
         }
 
         uint32_t now = millis();
+        bool pullRefresh = screenMgr.consumeRefreshRequest();
+        bool homeRefresh = screenMgr.consumeHomeRefreshRequest();
         bool shouldFetch = firstFetch ||
                            (now - lastFetchMs >= POLL_INTERVAL_MS) ||
-                           screenMgr.consumeRefreshRequest();
+                           pullRefresh || homeRefresh;
 
         if (shouldFetch) {
+            if (homeRefresh) {
+                DEBUG_PRINTLN("[Net] Home update tap: triggering /home/refresh...");
+                if (!fetcher.triggerHomeRefresh()) {
+                    DEBUG_PRINTF("[Net] /home/refresh failed: %s\n", fetcher.lastError().c_str());
+                }
+            }
             // ---- Fetch layout XML (only if version changed) ----
             String newVersion;
             size_t xmlLen = 0;
