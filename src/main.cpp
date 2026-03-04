@@ -215,6 +215,10 @@ void taskNetwork(void* pvParams) {
                 DEBUG_PRINTF("[Net] Data fetch failed: %s\n", fetcher.lastError().c_str());
                 if (firstFetch) {
                     screenMgr.postShowError("Data error:\n" + fetcher.lastError());
+                    screenMgr.postGoToSettings();
+                    // Stop network task to avoid bouncing back to fetch screen
+                    vTaskDelete(nullptr);
+                    return;
                 }
             }
 
