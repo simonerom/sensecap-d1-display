@@ -361,11 +361,6 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                         bool hasStrong = (line.indexOf("**") >= 0);
                         bool hasEm = (!hasStrong && (line.indexOf("*") >= 0 || line.indexOf("_") >= 0));
 
-                        // Make bold visible for any **...** usage, not only whole-line strong
-                        if (hasStrong) {
-                            localBold = true;
-                        }
-
                         // Keep header color stable (do not override to red)
                         if (!isHeader && hasEm && !localBold) {
                             localCol = lv_hlp_hex(0xD6D6EA);
