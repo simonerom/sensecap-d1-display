@@ -170,22 +170,34 @@ void PlaceholderEngine::updateSensor(float tempC, float humPct, bool ok, float t
         setValue("indoor_hum", buf);
     }
 
+    // tVOC/CO2 anti-flicker: keep last valid value for a short grace window
+    const uint32_t nowMs = millis();
+    const uint32_t HOLD_MS = 5000;
+
     // tVOC index from RP2040 — matches {voc} placeholder in layout
-    if (tvoc <= 0) {
-        setValue("voc", "--");
-    } else {
+    if (tvoc > 0) {
         snprintf(buf, sizeof(buf), "%.0f", tvoc);
+        _lastVocValue = String(buf);
+        _lastVocValidMs = nowMs;
         setValue("voc", buf);
+    } else if (!_lastVocValue.isEmpty() && (nowMs - _lastVocValidMs) <= HOLD_MS) {
+        setValue("voc", _lastVocValue.c_str());
+    } else {
+        setValue("voc", "--");
     }
 
     // CO2 from SCD41 via RP2040 — matches {co2} placeholder in layout
-    if (co2 <= 0) {
-        setValue("co2", "--");
-    } else {
+    if (co2 > 0) {
         snprintf(buf, sizeof(buf), "%.0f", co2);
+        _lastCo2Value = String(buf);
+        _lastCo2ValidMs = nowMs;
         setValue("co2", buf);
+    } else if (!_lastCo2Value.isEmpty() && (nowMs - _lastCo2ValidMs) <= HOLD_MS) {
+        setValue("co2", _lastCo2Value.c_str());
+    } else {
+        setValue("co2", "--");
     }
-    setValue("co2_unit", co2 > 0 ? "ppm" : "");
+    setValue("co2_unit", (co2 > 0 || (!_lastCo2Value.isEmpty() && (nowMs - _lastCo2ValidMs) <= HOLD_MS)) ? "ppm" : "");
 }
 
 // =============================================================================

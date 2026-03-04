@@ -92,6 +92,11 @@ private:
     std::map<String, String> _values;
     uint32_t                 _dataFetchedMs = 0;  // millis() when last applyData called
     uint32_t                 _homeMsgGeneratedEpoch = 0; // unix ts (seconds)
+    // Keep last valid air-quality readings to avoid UI flicker on transient invalid frames
+    uint32_t                 _lastVocValidMs = 0;
+    uint32_t                 _lastCo2ValidMs = 0;
+    String                   _lastVocValue;
+    String                   _lastCo2Value;
 
     // Scalar label registry: key → list of lv_obj_t* labels
     std::map<String, std::vector<lv_obj_t*>> _labels;
