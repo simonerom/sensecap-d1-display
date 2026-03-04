@@ -535,7 +535,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
         lv_hlp_flex_row(rr, 8);
         lv_obj_set_style_flex_cross_place(rr, LV_FLEX_ALIGN_START, 0);
         lv_obj_set_width(rr, LV_PCT(100));
-        lv_obj_set_height(rr, 136);
+        lv_obj_set_height(rr, 144);
         lv_obj_clear_flag(rr, LV_OBJ_FLAG_SCROLLABLE);
 
         for (int j = i; j < i + 2 && j < 5; ++j) {
@@ -547,7 +547,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_obj_set_style_flex_cross_place(card, LV_FLEX_ALIGN_START, 0);
             lv_obj_set_width(card, LV_SIZE_CONTENT);
             lv_hlp_flex_grow(card, 1);
-            lv_obj_set_height(card, 132);
+            lv_obj_set_height(card, 140);
             lv_hlp_set_pad_all(card, 8);
             lv_obj_set_style_border_color(card, lv_hlp_hex(0xFFFFFF), 0);
             lv_obj_set_style_border_width(card, 1, 0);
@@ -571,12 +571,19 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_hlp_set_text_color(st, lv_color_white());
             lv_hlp_set_font(st, lv_hlp_font_ex(14, true));
 
+            // Push toggle to bottom area while keeping card compact
+            lv_obj_t* spacer = lv_hlp_obj(card);
+            lv_obj_set_height(spacer, 1);
+            lv_hlp_flex_grow(spacer, 1);
+
             lv_obj_t* swRow = lv_hlp_obj(card);
             lv_hlp_flex_row(swRow, 0);
+            lv_obj_set_height(swRow, 38);
             lv_obj_set_style_pad_top(swRow, 0, 0);
             lv_obj_set_style_pad_bottom(swRow, 0, 0);
             lv_obj_set_width(swRow, LV_PCT(100));
             lv_obj_set_style_flex_main_place(swRow, LV_FLEX_ALIGN_CENTER, 0);
+            lv_obj_set_style_flex_cross_place(swRow, LV_FLEX_ALIGN_CENTER, 0);
             lv_obj_clear_flag(swRow, LV_OBJ_FLAG_SCROLLABLE);
 
             lv_obj_t* sw = lv_btn_create(swRow);
