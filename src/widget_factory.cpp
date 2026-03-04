@@ -533,7 +533,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
         lv_hlp_flex_row(rr, 8);
         lv_obj_set_style_flex_cross_place(rr, LV_FLEX_ALIGN_START, 0);
         lv_obj_set_width(rr, LV_PCT(100));
-        lv_obj_set_height(rr, 124);
+        lv_obj_set_height(rr, 248);
         lv_obj_clear_flag(rr, LV_OBJ_FLAG_SCROLLABLE);
 
         for (int j = i; j < i + 2 && j < 5; ++j) {
@@ -544,7 +544,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
             lv_obj_set_style_flex_main_place(card, LV_FLEX_ALIGN_START, 0);
             lv_obj_set_width(card, LV_SIZE_CONTENT);
             lv_hlp_flex_grow(card, 1);
-            lv_obj_set_height(card, 120);
+            lv_obj_set_height(card, 244);
             lv_hlp_set_pad_all(card, 10);
             lv_obj_set_style_border_color(card, lv_hlp_hex(0xFFFFFF), 0);
             lv_obj_set_style_border_width(card, 1, 0);
