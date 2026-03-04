@@ -93,6 +93,8 @@ public:
     bool consumeRefreshRequest();
     // Check and clear explicit Home message refresh request (Update tap).
     bool consumeHomeRefreshRequest();
+    bool consumeHeatingRefreshRequest();
+    PageId currentPage() const { return _currentPage; }
 
     // Apply touch calibration immediately (called from setup() after NVS load).
     void applyCalibration(const TouchCalibration& cal);
@@ -131,6 +133,7 @@ private:
     lv_obj_t* _refreshSpinner = nullptr;
     bool      _refreshRequested = false;
     bool      _homeRefreshRequested = false;
+    bool      _heatingRefreshRequested = false;
     bool      _refreshSpinnerVisible = false;
 
     // ---- Gesture state ----

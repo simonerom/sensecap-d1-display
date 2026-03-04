@@ -64,7 +64,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.78"
+SPEC_VERSION = "1.3.79"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -479,6 +479,8 @@ def get_events():
         return []
 
 # ---- Heating (Shelly BluTRV) ----
+_heating_last_action_ts = 0
+
 HEAT_ROOMS = {
     "sala":   ("192.168.1.33", 200),
     "cucina": ("192.168.1.33", 201),
@@ -532,16 +534,24 @@ def get_heating():
     return out
 
 def heating_action(cmd):
+    global _heating_last_action_ts
     cmd = (cmd or "").strip().lower()
+
+    def _mark(ok: bool) -> bool:
+        global _heating_last_action_ts
+        if ok:
+            _heating_last_action_ts = int(datetime.now(TZ).timestamp())
+        return ok
+
     if cmd == "all_on":
-        return all(_heat_set_target(ip, rid, 30) for ip, rid in HEAT_ROOMS.values())
+        return _mark(all(_heat_set_target(ip, rid, 30) for ip, rid in HEAT_ROOMS.values()))
     if cmd == "all_off":
-        return all(_heat_set_target(ip, rid, 4) for ip, rid in HEAT_ROOMS.values())
+        return _mark(all(_heat_set_target(ip, rid, 4) for ip, rid in HEAT_ROOMS.values()))
     for name, (ip, rid) in HEAT_ROOMS.items():
         if cmd == f"{name}_on":
-            return _heat_set_target(ip, rid, 30)
+            return _mark(_heat_set_target(ip, rid, 30))
         if cmd == f"{name}_off":
-            return _heat_set_target(ip, rid, 4)
+            return _mark(_heat_set_target(ip, rid, 4))
     return False
 
 
@@ -944,6 +954,7 @@ def build_data():
         "condition_icon":  weather["condition_icon"],
 
         **heating,
+        "heat_action_ts": str(_heating_last_action_ts),
 
         "btc_symbol": crypto["btc"]["symbol"],
         "btc_price":  crypto["btc"]["price"],

@@ -174,7 +174,9 @@ void ScreenManager::_navigateTo(PageId page, bool animate) {
         lv_hlp_load_screen_instant(_screens[idx]);
     }
     _currentPage = page;
+    if (page == PageId::Heating) _heatingRefreshRequested = true;
 }
+
 
 void ScreenManager::goTo(PageId page) {
     _navigateTo(page, true);
@@ -241,6 +243,11 @@ bool ScreenManager::consumeRefreshRequest() {
 
 bool ScreenManager::consumeHomeRefreshRequest() {
     if (_homeRefreshRequested) { _homeRefreshRequested = false; return true; }
+    return false;
+}
+
+bool ScreenManager::consumeHeatingRefreshRequest() {
+    if (_heatingRefreshRequested) { _heatingRefreshRequested = false; return true; }
     return false;
 }
 

@@ -38,6 +38,8 @@ static AppSettings     appSettings;
 // Timing
 static uint32_t lastFetchMs  = 0;
 static bool     firstFetch   = true;
+static uint32_t heatFastUntilMs = 0;
+static uint32_t lastHeatActionTs = 0;
 
 // Layout version tracking (compared against X-Layout-Version header)
 static String   cachedLayoutVersion = "";
@@ -172,9 +174,16 @@ void taskNetwork(void* pvParams) {
         uint32_t now = millis();
         bool pullRefresh = screenMgr.consumeRefreshRequest();
         bool homeRefresh = screenMgr.consumeHomeRefreshRequest();
+        bool heatingEnterRefresh = screenMgr.consumeHeatingRefreshRequest();
+
+        uint32_t pollMs = POLL_INTERVAL_MS;
+        if (screenMgr.currentPage() == PageId::Heating) {
+            pollMs = (now < heatFastUntilMs) ? 1000 : 10000;
+        }
+
         bool shouldFetch = firstFetch ||
-                           (now - lastFetchMs >= POLL_INTERVAL_MS) ||
-                           pullRefresh || homeRefresh;
+                           (now - lastFetchMs >= pollMs) ||
+                           pullRefresh || homeRefresh || heatingEnterRefresh;
 
         if (shouldFetch) {
             if (homeRefresh) {
@@ -209,6 +218,14 @@ void taskNetwork(void* pvParams) {
             DEBUG_PRINTLN("[Net] Fetching data.json...");
             DataPayload* payload = new DataPayload();
             if (fetcher.fetchData(*payload)) {
+                auto it = payload->scalars.find("heat_action_ts");
+                if (it != payload->scalars.end()) {
+                    uint32_t ts = (uint32_t)it->second.toInt();
+                    if (ts > lastHeatActionTs) {
+                        lastHeatActionTs = ts;
+                        heatFastUntilMs = now + 20000;
+                    }
+                }
                 screenMgr.postDataUpdate(payload);
             } else {
                 delete payload;
