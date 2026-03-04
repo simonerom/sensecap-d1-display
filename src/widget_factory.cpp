@@ -159,7 +159,7 @@ lv_obj_t* WidgetFactory::_buildCard(lv_obj_t* parent, const AttrMap& attrs) {
         lv_color_t bc = _attrColor(attrs, "border_color", 0xFFFFFF);
         lv_obj_set_style_border_color(card, bc, 0);
         lv_obj_set_style_border_width(card, borderW, 0);
-        lv_obj_set_style_border_opa(card, LV_OPA_70, 0);
+        lv_obj_set_style_border_opa(card, LV_OPA_20, 0);
     }
     if (tight) {
         lv_obj_set_style_pad_row(card, 0, 0);
@@ -314,6 +314,7 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
     bool bold         = _attrBool(attrs, "bold", false);
     bool italic       = _attrBool(attrs, "italic", false);
     bool recolor      = _attrBool(attrs, "recolor", false) || _attrBool(attrs, "rich", false);
+    bool markdown     = _attrBool(attrs, "markdown", false);
     String bullet     = _attr(attrs, "bullet", "• ");
 
     // Container for the list items
@@ -324,9 +325,9 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
 
     // Store config in a heap struct for the rebuild lambda
     struct ListCfg {
-        int fontSize; lv_color_t col; lv_color_t divCol; bool hasDivider; bool bold; bool italic; bool recolor; String bullet;
+        int fontSize; lv_color_t col; lv_color_t divCol; bool hasDivider; bool bold; bool italic; bool recolor; bool markdown; String bullet;
     };
-    auto* cfg = new ListCfg{fontSize, col, divCol, hasDivider, bold, italic, recolor, bullet};
+    auto* cfg = new ListCfg{fontSize, col, divCol, hasDivider, bold, italic, recolor, markdown, bullet};
 
     // Wire up array placeholder
     if (!itemsAttr.isEmpty() && itemsAttr.startsWith("{") && itemsAttr.endsWith("}")) {
@@ -345,11 +346,37 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                         lv_hlp_set_radius(div, 0);
                         lv_hlp_set_pad_all(div, 0);
                     }
-                    String text = cfg->bullet + items[i];
+                    String line = items[i];
+                    int localFont = cfg->fontSize;
+                    bool localBold = cfg->bold;
+                    lv_color_t localCol = cfg->col;
+                    if (cfg->markdown || line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### ") || line.startsWith("- ") || line.indexOf("**") >= 0) {
+                        if (line.startsWith("### ")) { line = line.substring(4); localFont = 22; localBold = true; localCol = lv_hlp_hex(0x7DD3FC); }
+                        else if (line.startsWith("## ")) { line = line.substring(3); localFont = 24; localBold = true; localCol = lv_hlp_hex(0xFDE68A); }
+                        else if (line.startsWith("# ")) { line = line.substring(2); localFont = 28; localBold = true; localCol = lv_hlp_hex(0x86EFAC); }
+                        if (line.startsWith("- ")) line = String("• ") + line.substring(2);
+
+                        // inline emphasis parsing (best-effort)
+                        bool hasStrong = (line.indexOf("**") >= 0);
+                        bool wholeStrong = hasStrong && line.startsWith("**") && line.endsWith("**") && line.length() > 4;
+                        bool hasEm = (!hasStrong && (line.indexOf("*") >= 0 || line.indexOf("_") >= 0));
+                        if (wholeStrong) {
+                            localBold = true;
+                            localCol = lv_hlp_hex(0xFCA5A5);
+                        } else if (hasEm && !localBold) {
+                            localCol = lv_hlp_hex(0xD6D6EA);
+                        }
+
+                        // remove markdown markers from rendered text
+                        line.replace("**", "");
+                        line.replace("*", "");
+                        line.replace("_", "");
+                    }
+                    String text = cfg->bullet + line;
                     lv_obj_t* lbl = lv_label_create(c);
                     lv_label_set_text(lbl, text.c_str());
-                    lv_hlp_set_text_color(lbl, cfg->col);
-                    lv_hlp_set_font(lbl, lv_hlp_font_ex(cfg->fontSize, cfg->bold));
+                    lv_hlp_set_text_color(lbl, localCol);
+                    lv_hlp_set_font(lbl, lv_hlp_font_ex(localFont, localBold));
                     lv_label_set_recolor(lbl, cfg->recolor);
                     if (cfg->italic) lv_obj_set_style_text_decor(lbl, LV_TEXT_DECOR_UNDERLINE, 0);
                     lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);

@@ -129,12 +129,7 @@ char* DataFetcher::fetchLayout(const String& cachedVersion, String& outVersion, 
         return nullptr;
     }
 
-    // If version matches cached, no rebuild needed
-    if (cachedVersion.length() > 0 && serverVersion == cachedVersion) {
-        DEBUG_PRINTF("[HTTP] Layout version unchanged (%s), skip rebuild.\n", serverVersion.c_str());
-        _lastError = "";  // not an error
-        return nullptr;
-    }
+    // Diagnostic: do NOT skip by version; always allow rebuild with latest layout.
 
     outLen = body.length();
     char* buf = (char*)heap_caps_malloc(outLen + 1, MALLOC_CAP_SPIRAM);
@@ -161,6 +156,15 @@ bool DataFetcher::fetchData(DataPayload& out) {
     return _parseDataJson(body, out);
 }
 
+
+
+bool DataFetcher::triggerHomeRefresh() {
+    String body = _httpGet("/home/refresh");
+    if (body.isEmpty()) {
+        return false;
+    }
+    return (_lastHttpCode == 200);
+}
 // =============================================================================
 // _parseDataJson — ArduinoJson 7 deserialization into DataPayload
 // =============================================================================
@@ -180,7 +184,7 @@ bool DataFetcher::_parseDataJson(const String& body, DataPayload& out) {
 
     // generic array keys → flat strings
     static const char* ARRAY_KEYS[] = {
-        "news", "news_italia", "news_estero", "news_milano", "scioperi", nullptr
+        "news", "news_italia", "news_estero", "news_milano", "scioperi", "home_lines", nullptr
     };
     for (int ki = 0; ARRAY_KEYS[ki]; ki++) {
         const char* key = ARRAY_KEYS[ki];

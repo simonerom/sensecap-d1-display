@@ -405,3 +405,16 @@ Predefined theme colors (recommended):
 |---------|------|---------|
 | 1.0.0 | 2026-03-02 | Initial spec |
 
+
+
+## Markdown subset (home_message)
+
+`home_message` supports a lightweight markdown subset rendered by firmware:
+
+- `#`, `##`, `###` headers
+- `**bold**`
+- `*italic*` and `_italic_`
+- `- bullet` lists
+- plain newlines/paragraphs
+
+Optional compatibility syntax is still accepted: `{#RRGGBB}text{/}` for inline colors.

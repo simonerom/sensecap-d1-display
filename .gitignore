@@ -1,2 +1,5 @@
 .pio/
 prompt.txt
+
+__pycache__/
+*.pyc

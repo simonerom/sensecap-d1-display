@@ -33,6 +33,9 @@ public:
     // Fetch /data.json and parse into DataPayload.
     bool fetchData(DataPayload& out);
 
+    // Trigger server-side home message refresh (best-effort).
+    bool triggerHomeRefresh();
+
     const String& lastError()    const { return _lastError; }
     int           lastHttpCode() const { return _lastHttpCode; }
 
