@@ -350,7 +350,7 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                     String line = items[i];
                     int localFont = cfg->fontSize;
                     lv_color_t localCol = cfg->col;
-                    bool markdownLike = cfg->markdown || line.startsWith("# ") || line.startsWith("## ") || line.startsWith("- ") || line.indexOf("**") >= 0 || line.indexOf("{#") >= 0;
+                    bool markdownLike = cfg->markdown || line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### ") || line.startsWith("- ") || line.indexOf("**") >= 0 || line.indexOf("*") >= 0 || line.indexOf("{#") >= 0;
 
                     // Header levels (#, ##, ###)
                     if (line.startsWith("### ")) { line = line.substring(4); localFont = 22; localCol = lv_hlp_hex(0x93C5FD); }
@@ -386,7 +386,9 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                         };
 
                         lv_color_t curCol = localCol;
+                        const lv_color_t accentCol = lv_hlp_hex(0xD6D6EA);
                         bool curBold = false;
+                        bool curAccent = false;
                         String acc;
                         int pos = 0;
                         while (pos < line.length()) {
@@ -395,6 +397,14 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                                 addSpan(acc, curBold, curCol); acc = "";
                                 curBold = !curBold;
                                 pos += 2;
+                                continue;
+                            }
+                            // single-star accent marker *...* (not **)
+                            if (line[pos] == '*' && !(pos + 1 < line.length() && line[pos + 1] == '*')) {
+                                addSpan(acc, curBold, curCol); acc = "";
+                                curAccent = !curAccent;
+                                curCol = curAccent ? accentCol : localCol;
+                                pos += 1;
                                 continue;
                             }
                             // color open {#RRGGBB}
