@@ -45,8 +45,13 @@ def main():
     if task == "format_home_message_markdown_lite":
         text = payload.get("input", "")
         prompt = (
-            "Riformatta il testo seguente in markdown-lite per display piccolo.\n"
-            "Regole: mantieni i fatti, niente invenzioni, niente tabelle/code block, italiano, usa #/## e liste '-'.\nNon mettere bullet su ogni riga: usa '-' solo per vere liste (max 2-4 punti per sezione).\nUsa **grassetto** per etichette chiave (es: BTC, ETH, IOTX, Oggi, Domani, Agenda).\nUsa colori inline in formato {#RRGGBB}testo{/} dove utile: verde #22C55E per variazioni positive, rosso #EF4444 per negative, azzurro #93C5FD per sezioni importanti.\nUsa solo caratteri ASCII/latin semplici: niente emoji, niente simboli decorativi.\n"
+            "Riformatta il testo seguente per home dashboard in markdown-lite.\n"
+            "Pipeline: il testo è già de-emoji, NON reintrodurre emoji.\n"
+            "Regole obbligatorie: mantieni i fatti, niente invenzioni, niente tabelle, niente code block, italiano naturale.\n"
+            "Usa # e ## per intestazioni, '-' per liste vere, **parola** per label ovvie (es: Oggi, Domani, BTC, ETH, IOTX, Agenda, Notizie).\n"
+            "Usa colori inline nel formato {#RRGGBB}parola{/}. Osa il colore per concetti chiave: azzurro #93C5FD (sezioni), verde #22C55E (positivo), rosso #EF4444 (negativo), ambra #F59E0B (warning).\n"
+            "Separa bene sezioni e paragrafi con righe vuote per leggibilità su schermo piccolo.\n"
+            "Usa solo caratteri ASCII/latin semplici: niente emoji, niente simboli decorativi.\n"
             "Restituisci SOLO il testo finale.\n\n"
             f"TESTO:\n{text}"
         )
