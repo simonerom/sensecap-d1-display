@@ -46,7 +46,7 @@ def main():
         text = payload.get("input", "")
         prompt = (
             "Riformatta il testo seguente in markdown-lite per display piccolo.\n"
-            "Regole: mantieni i fatti, niente invenzioni, niente tabelle/code block, italiano, usa #/## e liste '-'.\nNon mettere bullet su ogni riga: usa '-' solo per vere liste (max 2-4 punti per sezione).\nUsa solo caratteri ASCII/latin semplici: niente emoji, niente simboli decorativi.\n"
+            "Regole: mantieni i fatti, niente invenzioni, niente tabelle/code block, italiano, usa #/## e liste '-'.\nNon mettere bullet su ogni riga: usa '-' solo per vere liste (max 2-4 punti per sezione).\nEvidenzia in **grassetto** i dati chiave (temperature, orari, prezzi, variazioni, date importanti).\nUsa solo caratteri ASCII/latin semplici: niente emoji, niente simboli decorativi.\n"
             "Restituisci SOLO il testo finale.\n\n"
             f"TESTO:\n{text}"
         )

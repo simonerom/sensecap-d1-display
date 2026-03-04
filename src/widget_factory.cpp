@@ -351,9 +351,9 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
                     bool localBold = cfg->bold;
                     lv_color_t localCol = cfg->col;
                     if (cfg->markdown || line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### ") || line.startsWith("- ") || line.indexOf("**") >= 0) {
-                        if (line.startsWith("### ")) { line = line.substring(4); localFont = 22; localBold = true; localCol = lv_hlp_hex(0x7DD3FC); }
-                        else if (line.startsWith("## ")) { line = line.substring(3); localFont = 24; localBold = true; localCol = lv_hlp_hex(0xFDE68A); }
-                        else if (line.startsWith("# ")) { line = line.substring(2); localFont = 28; localBold = true; localCol = lv_hlp_hex(0x86EFAC); }
+                        if (line.startsWith("### ")) { line = line.substring(4); localFont = 22; localBold = true; localCol = lv_hlp_hex(0x93C5FD); }
+                        else if (line.startsWith("## ")) { line = line.substring(3); localFont = 24; localBold = true; localCol = lv_hlp_hex(0x7DD3FC); }
+                        else if (line.startsWith("# ")) { line = line.substring(2); localFont = 28; localBold = true; localCol = lv_hlp_hex(0x60A5FA); }
                         if (line.startsWith("- ")) line = String("• ") + line.substring(2);
 
                         // inline emphasis parsing (best-effort)
