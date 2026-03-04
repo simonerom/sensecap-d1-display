@@ -474,12 +474,14 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
     lv_obj_t* col = lv_hlp_obj(parent);
     lv_hlp_flex_col(col, 10);
     lv_obj_set_width(col, LV_PCT(100));
+    lv_obj_set_height(col, LV_SIZE_CONTENT);
 
     // Global status card
     lv_obj_t* top = lv_hlp_card(col, lv_hlp_hex(0xFFFFFF), 12, 0);
     lv_obj_set_style_bg_opa(top, LV_OPA_30, 0);
     lv_hlp_flex_col(top, 6);
     lv_obj_set_width(top, LV_PCT(100));
+    lv_obj_set_height(top, LV_SIZE_CONTENT);
     lv_hlp_set_pad_all(top, 12);
 
     lv_obj_t* t = lv_hlp_label(top, "Riscaldamento", lv_hlp_hex(0x93C5FD), 20);
@@ -526,7 +528,10 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
     mkBtn(row, "Accendi tutto", "all_on", 0x22C55E);
     mkBtn(row, "Spegni tutto", "all_off", 0xEF4444);
 
-    struct R { const char* key; const char* title; } rooms[] = {
+    lv_obj_t* sec = lv_hlp_label(col, "Termosifoni", lv_hlp_hex(0x93C5FD), 16);
+    lv_hlp_set_font(sec, lv_hlp_font_ex(16, true));
+
+        struct R { const char* key; const char* title; } rooms[] = {
         {"sala", "Sala"}, {"cucina", "Cucina"}, {"camera", "Camera"}, {"bagno", "Bagno"}, {"studio", "Studio"}
     };
 
@@ -535,6 +540,7 @@ lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& 
         lv_obj_set_style_bg_opa(card, LV_OPA_30, 0);
         lv_hlp_flex_col(card, 6);
         lv_obj_set_width(card, LV_PCT(100));
+        lv_obj_set_height(card, LV_SIZE_CONTENT);
         lv_hlp_set_pad_all(card, 10);
 
         lv_obj_t* rr = lv_hlp_obj(card);
