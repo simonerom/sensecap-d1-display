@@ -10,9 +10,10 @@ import re
 import subprocess
 import threading
 import urllib.request
+import os
 from datetime import datetime, timedelta, date
 import calendar as _cal_mod
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import caldav
 import pytz
@@ -63,7 +64,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.49"
+SPEC_VERSION = "1.3.74"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -74,6 +75,12 @@ _cache_lock = threading.Lock()
 _cached_data = None
 _cache_ts    = 0
 CACHE_TTL    = 60  # seconds
+
+# Home message generation cache (periodic slots + manual refresh)
+_home_message_cache = None
+_home_message_ai = False
+_home_message_generated_at = None
+
 
 def _refresh_cache():
     global _cached_data, _cache_ts
@@ -466,44 +473,311 @@ def build_roberta_note(now, rain_morning, rain_evening):
 
 
 
-def build_meteo_summary(now, weather, events):
+def _build_home_message_fallback(now, weather, news, crypto, events, curiosity):
     fc = weather.get("forecast", [])
     parts = []
 
-    parts.append(f"**Meteo attuale**  {weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}")
-
+    parts.append("# Meteo")
+    parts.append(f"{weather['condition']}, {weather['outdoor_temp']}, vento {weather['wind']}")
     if fc:
         t = fc[0]
         precip = t.get("precip", 0) or 0
         prob = weather.get("rain_max_today", 0)
         rain = f"pioggia {prob}% ({precip:.0f}mm)" if (prob >= 20 or precip >= 1) else "nessuna pioggia"
-        parts.append(f"{{#9CCBFF}}Oggi{{/}}  {t['desc']}, {t['max']}°/{t['min']}°C - {rain}")
-
+        parts.append(f"- **Oggi** {t['desc']}, {t['max']}°/{t['min']}°C - {rain}")
     if len(fc) > 1:
         t = fc[1]
         precip = t.get("precip", 0) or 0
         prob = weather.get("rain_max_tomorrow", 0)
         rain = f"pioggia {prob}% ({precip:.0f}mm)" if (prob >= 20 or precip >= 1) else "nessuna pioggia"
-        parts.append(f"{{#9CCBFF}}Domani{{/}}  {t['desc']}, {t['max']}°/{t['min']}°C - {rain}")
+        parts.append(f"- **Domani** {t['desc']}, {t['max']}°/{t['min']}°C - {rain}")
 
     roberta = build_roberta_note(now, weather["rain_morning"], weather["rain_evening"])
     if roberta:
         parts.append("")
-        parts.append("_Commute Roberta_")
+        parts.append("## Commute Roberta")
         for line in roberta.split("\n"):
-            parts.append(f"{{#D6D6EA}}-{{/}} {line}")
+            parts.append(f"- {line}")
+
+    if news.get("scioperi"):
+        parts.append("")
+        parts.append("## Scioperi")
+        for item in news["scioperi"][:5]:
+            parts.append(f"- {item}")
+
+    if news.get("italia"):
+        parts.append("")
+        parts.append("## Notizie Italia")
+        for item in news["italia"][:3]:
+            parts.append(f"- {item}")
+
+    if news.get("estero"):
+        parts.append("")
+        parts.append("## Notizie Estero")
+        for item in news["estero"][:3]:
+            parts.append(f"- {item}")
+
+    parts.append("")
+    parts.append("## Mercati")
+    parts.append(f"- BTC {crypto['btc']['price']}  **{crypto['btc']['change']}**")
+    parts.append(f"- ETH {crypto['eth']['price']}  **{crypto['eth']['change']}**")
+    parts.append(f"- IOTX {crypto['iotx']['price']}  **{crypto['iotx']['change']}**")
 
     today_date = now.strftime("%-d %b").lower()
     today_events = [e for e in events if isinstance(e, str) and today_date in e.lower()]
     if today_events:
         parts.append("")
-        parts.append("{#FFD89C}Agenda di oggi{/}")
+        parts.append("## Agenda di oggi")
         for e in today_events:
             title = e.split("|||")[0] if "|||" in e else e
             date_s = e.split("|||")[1] if "|||" in e else ""
-            parts.append(f"{{#FFD89C}}-{{/}} **{title}**" + (f" - {date_s}" if date_s else ""))
+            parts.append(f"- **{title}**" + (f" - {date_s}" if date_s else ""))
+
+    if curiosity:
+        parts.append("")
+        parts.append("## Curiosità")
+        parts.append(curiosity)
 
     return "\n".join(parts)
+
+
+def _generate_home_message_bridge(now, weather, news, crypto, events, curiosity):
+    cmd = os.getenv("HOME_MESSAGE_BRIDGE_CMD", "").strip()
+    if not cmd:
+        return None
+
+    payload = {
+        "now": now.isoformat(),
+        "weather": weather,
+        "news": news,
+        "crypto": crypto,
+        "events": events[:10],
+        "curiosity": curiosity,
+        "rules": {
+            "format": "markdown-lite",
+            "allowed": ["#", "##", "###", "**bold**", "*italic*", "_italic_", "- bullets"],
+            "max_chars": 2400,
+            "lang": "it"
+        }
+    }
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            input=json.dumps(payload, ensure_ascii=False),
+            text=True,
+            shell=True,
+            capture_output=True,
+            timeout=int(os.getenv("HOME_MESSAGE_BRIDGE_TIMEOUT", "40")),
+        )
+        if proc.returncode != 0:
+            err = (proc.stderr or "").strip()
+            print(f"[bridge] cmd failed rc={proc.returncode}: {err[:200]}")
+            return None
+        out = (proc.stdout or "").strip()
+        return out or None
+    except Exception as e:
+        print(f"[bridge] generation failed: {e}")
+        return None
+
+
+def _generate_home_message_ai(now, weather, news, crypto, events, curiosity):
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return None
+
+    model = os.getenv("HOME_MESSAGE_AI_MODEL", "gpt-4o-mini")
+    max_events = []
+    for e in events[:6]:
+        if isinstance(e, str):
+            max_events.append(e)
+
+    prompt = {
+        "now": now.isoformat(),
+        "weather": weather,
+        "news": news,
+        "crypto": crypto,
+        "events": max_events,
+        "curiosity": curiosity,
+        "rules": [
+            "Write in Italian",
+            "Output ONLY markdown text",
+            "Use markdown subset: # ## ###, **bold**, *italic*, - bullets",
+            "No code fences, no tables",
+            "Keep it concise and readable on a small display"
+        ]
+    }
+
+    body = {
+        "model": model,
+        "input": [
+            {"role": "system", "content": "Sei un assistente che compone un breve messaggio home dashboard in markdown."},
+            {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}
+        ],
+        "max_output_tokens": 500
+    }
+
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/responses",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        },
+        method="POST"
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=6) as r:
+            res = json.loads(r.read().decode("utf-8", errors="replace"))
+        text = (res.get("output_text") or "").strip()
+        return text or None
+    except Exception as e:
+        print(f"[ai] home_message generation failed: {e}")
+        return None
+
+
+def _style_home_message_ai(raw_text):
+    text = (raw_text or "").strip()
+    if not text:
+        return None
+
+    # Optional bridge-style formatter command
+    style_cmd = os.getenv("HOME_MESSAGE_STYLE_BRIDGE_CMD", "").strip()
+    if style_cmd:
+        payload = {
+            "task": "format_home_message_markdown_lite",
+            "input": text,
+            "rules": {
+                "keep_facts": True,
+                "language": "it",
+                "format": "markdown-lite",
+                "allowed": ["#", "##", "###", "**bold**", "*italic*", "_italic_", "- bullets"],
+                "no_tables": True,
+                "no_code_fences": True,
+                "max_chars": 2600
+            }
+        }
+        try:
+            proc = subprocess.run(
+                style_cmd,
+                input=json.dumps(payload, ensure_ascii=False),
+                text=True,
+                shell=True,
+                capture_output=True,
+                timeout=int(os.getenv("HOME_MESSAGE_STYLE_BRIDGE_TIMEOUT", "20")),
+            )
+            if proc.returncode == 0:
+                out = (proc.stdout or "").strip()
+                if out:
+                    return out
+            else:
+                print(f"[style-bridge] rc={proc.returncode}: {(proc.stderr or '').strip()[:180]}")
+        except Exception as e:
+            print(f"[style-bridge] failed: {e}")
+
+    # Fallback: OpenAI formatting pass (if key available)
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return None
+
+    model = os.getenv("HOME_MESSAGE_STYLE_MODEL", os.getenv("HOME_MESSAGE_AI_MODEL", "gpt-4o-mini"))
+    prompt = {
+        "instruction": "Riformatta il testo in markdown-lite per display piccolo, senza inventare fatti.",
+        "rules": [
+            "Mantieni tutti i fatti principali",
+            "Italiano naturale",
+            "Usa # ## ### per sezioni",
+            "Usa - per liste",
+            "Usa **bold** e *italic* solo dove utile",
+            "No tabelle, no blocchi di codice"
+        ],
+        "text": text
+    }
+    body = {
+        "model": model,
+        "input": [
+            {"role": "system", "content": "Sei un formatter markdown-lite per dashboard."},
+            {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}
+        ],
+        "max_output_tokens": 500
+    }
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/responses",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        },
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=6) as r:
+            res = json.loads(r.read().decode("utf-8", errors="replace"))
+        out = (res.get("output_text") or "").strip()
+        return out or None
+    except Exception as e:
+        print(f"[style-ai] failed: {e}")
+        return None
+
+
+def build_home_message(now, weather, news, crypto, events, curiosity):
+    bridge_msg = _generate_home_message_bridge(now, weather, news, crypto, events, curiosity)
+    if bridge_msg:
+        raw = strip_emoji(bridge_msg)
+        pretty = _style_home_message_ai(raw)
+        return strip_emoji(pretty or raw), True
+
+    ai_msg = _generate_home_message_ai(now, weather, news, crypto, events, curiosity)
+    if ai_msg:
+        raw = strip_emoji(ai_msg)
+        pretty = _style_home_message_ai(raw)
+        return strip_emoji(pretty or raw), True
+
+    return strip_emoji(_build_home_message_fallback(now, weather, news, crypto, events, curiosity)), False
+
+
+def _home_slot_boundaries(now):
+    # Daily slots: 07:00, 12:00, 19:00
+    s1 = now.replace(hour=7, minute=0, second=0, microsecond=0)
+    s2 = now.replace(hour=12, minute=0, second=0, microsecond=0)
+    s3 = now.replace(hour=19, minute=0, second=0, microsecond=0)
+    return [s1, s2, s3]
+
+def _home_message_needs_refresh(now):
+    global _home_message_generated_at, _home_message_cache
+    if _home_message_cache is None or _home_message_generated_at is None:
+        return True
+    # refresh if crossed one of the slot boundaries after last generation
+    for slot in _home_slot_boundaries(now):
+        if _home_message_generated_at < slot <= now:
+            return True
+    return False
+
+def _format_age_label(now, then):
+    if not then:
+        return "--"
+    try:
+        delta = int((now - then).total_seconds())
+    except Exception:
+        return "--"
+    if delta < 10:
+        return "adesso"
+    if delta < 120:
+        return f"{(delta // 10) * 10}s fa"
+    if delta < 3600:
+        return f"{delta // 60}m fa"
+    return f"{delta // 3600}h fa"
+
+def _home_message_get(now, weather, news, crypto, events, curiosity, force=False):
+    global _home_message_cache, _home_message_ai, _home_message_generated_at
+    if force or _home_message_needs_refresh(now):
+        msg, is_ai = build_home_message(now, weather, news, crypto, events, curiosity)
+        _home_message_cache = msg
+        _home_message_ai = is_ai
+        _home_message_generated_at = datetime.now(TZ)
+    return _home_message_cache, _home_message_ai
+
 
 # ─── Data builder ─────────────────────────────────────────────────────────────
 
@@ -513,8 +787,15 @@ def build_data():
     crypto  = get_crypto()
     news     = get_news()
     events   = get_events()
-    meteo_summary = build_meteo_summary(now, weather, events)
     curiosity = get_curiosity(now)
+    home_message, home_ai_generated = _home_message_get(now, weather, news, crypto, events, curiosity, force=False)
+
+    if now.hour < 12:
+        home_title = "Buongiorno"
+    elif now.hour < 18:
+        home_title = "Buon pomeriggio"
+    else:
+        home_title = "Buonasera"
 
     # event_days
     ev_days = set()
@@ -573,15 +854,12 @@ def build_data():
         "iotx_change": crypto["iotx"]["change"],
         "iotx_trend":  crypto["iotx"]["trend"],
 
-        "news_italia":  news["italia"],
-        "news_estero":  news["estero"],
-        "news_milano":  news["milano"],
-        "scioperi":     news["scioperi"],
-        "scioperi_text": "\n".join(news["scioperi"]) if news["scioperi"] else "",
-        "scioperi_visible": "true" if news["scioperi"] else "false",
         "events":    events,
-        "meteo_summary": strip_emoji(meteo_summary),
-        "curiosity": strip_emoji(curiosity),
+        "home_title": home_title,
+        "home_ai_badge": "AI" if home_ai_generated else "",
+        "home_message_generated_ts": str(int(_home_message_generated_at.timestamp())) if _home_message_generated_at else "0",
+        "home_message": strip_emoji(home_message),
+        "home_lines": [strip_emoji(x) for x in home_message.split("\n")],
         "month_name": MONTHS_IT[now.month - 1],
         "weekday_long": DAYS_IT_FULL[now.weekday()],
         "year":        str(now.year),
@@ -601,25 +879,25 @@ def build_data():
 # ─── Layout XML (light theme) ─────────────────────────────────────────────────
 
 LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<screens version="1.4.15">
+<screens version="1.5.20">
 
   <screen id="home" bg="#4A235A" grad_color="#1B4F72" pad="10">
     <row gap="10" h="310">
       <!-- Left col: Interno + Esterno -->
       <col flex="1" gap="10">
-        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
+        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad="16" flex="1">
           <label text="Interno" font="18" color="#CCCCEE" bold="true" align="center"/>
           <label text="{indoor_temp}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="{indoor_hum}" font="16" color="#AAAACC" align="center"/>
         </card>
-        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
+        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad="16" flex="1">
           <label text="Esterno" font="18" color="#CCCCEE" bold="true" align="center"/>
           <label text="{outdoor_temp}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="{outdoor_hum}" font="16" color="#AAAACC" align="center"/>
         </card>
       </col>
       <!-- Center: tall date card -->
-      <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
+      <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad_h="8" pad_v="8" gap="4" tight="true" flex="2" h="100%" valign="center">
         <label text="{weekday}" font="28" color="#CCCCEE" align="center"/>
         <label text="{day}" font="128" color="#FFFFFF" align="center" bold="true"/>
         <label text="{month_name}" font="28" color="#CCCCEE" align="center"/>
@@ -630,39 +908,26 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
       </card>
       <!-- Right col: tVOC + CO2 -->
       <col flex="1" gap="10">
-        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1" valign="center">
+        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad="16" flex="1" valign="center">
           <label text="tVOC" font="18" color="#CCCCEE" bold="true" align="center"/>
           <label text="{voc}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="idx" font="16" color="#AAAACC" align="center"/>
         </card>
-        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" flex="1">
+        <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad="16" flex="1">
           <label text="CO2" font="18" color="#CCCCEE" bold="true" align="center"/>
           <label text="{co2}" font="18" color="#FFFFFF" align="center" bold="true"/>
           <label text="{co2_unit}" font="16" color="#AAAACC" align="center"/>
         </card>
       </col>
     </row>
-    <label text="agg. {data_age}" font="12" color="#CCCCEE" align="right" w="100%"/>
+    <row gap="8" w="100%">
+      <label text="agg. {data_age}" font="12" color="#CCCCEE" align="left" flex="1"/>
+      <label text="▶ update" font="12" color="#AAB0CC" w="auto"/>
+      <label text="{home_ai_badge}" font="12" color="#AAB0CC" w="auto"/>
+    </row>
     <!-- Bottom: scrollable full buongiorno -->
-    <card bg="#000" bg_opa="30" border_color="#FF2D2D" border_width="2" radius="8" pad="10" w="100%" visible="{scioperi_visible}">
-        <label text="⚠ Scioperi in arrivo" font="18" color="#FFD6D6" bold="true"/>
-        <label text="{scioperi_text}" font="16" color="#FFECEC" max_lines="0"/>
-      </card>
-    <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="14" w="100%" scroll="true" scrollbar="false" gap="16">
-      <label text="☁ Meteo" font="22" color="#E6E6F5" bold="true"/>
-      <label text="{meteo_summary}" font="18" color="#D9D9EE" max_lines="0" recolor="true"/>
-      <label text="★ Notizie Italia" font="22" color="#E6E6F5" bold="true"/>
-      <list items="{news_italia}" font="18" color="#F2F2FA" divider="#6E6E8A" max_lines="2"/>
-      <label text="★ Notizie Estero" font="22" color="#E6E6F5" bold="true"/>
-      <list items="{news_estero}" font="18" color="#F2F2FA" divider="#6E6E8A" max_lines="2"/>
-      <label text="★ Milano" font="22" color="#E6E6F5" bold="true"/>
-      <list items="{news_milano}" font="18" color="#F2F2FA" divider="#6E6E8A" max_lines="2"/>
-      <label text="$ Mercati" font="22" color="#E6E6F5" bold="true"/>
-      <crypto_row symbol="{btc_symbol}" price="{btc_price}" change="{btc_change}" trend="{btc_trend}" symbol_color="#E6E6F5" price_color="#F2F2FA" up_color="#00A885" down_color="#E53935"/>
-      <crypto_row symbol="{eth_symbol}" price="{eth_price}" change="{eth_change}" trend="{eth_trend}" symbol_color="#E6E6F5" price_color="#F2F2FA" up_color="#00A885" down_color="#E53935"/>
-      <crypto_row symbol="{iotx_symbol}" price="{iotx_price}" change="{iotx_change}" trend="{iotx_trend}" symbol_color="#E6E6F5" price_color="#F2F2FA" up_color="#00A885" down_color="#E53935"/>
-      <label text="◆ Curiosita" font="22" color="#E6E6F5" bold="true"/>
-      <label text="{curiosity}" font="18" color="#D9D9EE" max_lines="0"/>
+    <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad="14" w="100%" scroll="true" scrollbar="false" gap="10">
+      <list items="{home_lines}" font="18" color="#D9D9EE" markdown="true" bullet="" max_lines="0"/>
     </card>
     <card bg="#E53935" radius="6" pad="12" w="100%" visible="{alert_visible}">
       <label text="⚠ {alert}" font="16" color="#FFFFFF" align="center"/>
@@ -689,18 +954,18 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
   <screen id="clock" bg="#4A235A" grad_color="#1B4F72" pad="12">
     <!-- Card orologio -->
     <label text="{time_sec}" font="20" color="#CCCCEE" align="center"/>
-    <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16" w="100%" gap="4">
+    <card bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad="16" w="100%" gap="4">
       <big_clock font="96" color="#FFFFFF" align="center" format="HH:MM" bold="true"/>
       <label text="{clock_date}" font="24" color="#CCCCEE" align="center"/>
     </card>
     <!-- Card temperature -->
     <row gap="12" w="100%">
-      <card flex="1" bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16">
+      <card flex="1" bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad="16">
         <label text="▲ Interno" font="13" color="#CCCCEE" align="center"/>
         <label text="{indoor_temp}" font="32" color="#FFFFFF" align="center" bold="true"/>
         <label text="{indoor_hum}" font="14" color="#AAAACC" align="center"/>
       </card>
-      <card flex="1" bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="0" radius="12" pad="16">
+      <card flex="1" bg="#FFFFFF" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad="16">
         <label text="☁ Esterno" font="13" color="#CCCCEE" align="center"/>
         <label text="{outdoor_temp}" font="32" color="#FFFFFF" align="center" bold="true"/>
         <label text="{condition}" font="13" color="#AAAACC" align="center"/>
@@ -759,6 +1024,22 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"status": "ok", "version": SPEC_VERSION,
                             "timestamp": now.isoformat()})
 
+        elif self.path == "/home/refresh":
+            print(f"[{ts}] GET /home/refresh")
+            try:
+                # Force regenerate home message now
+                msg, is_ai = _home_message_get(now, get_weather(), get_news(), get_crypto(), get_events(), get_curiosity(now), force=True)
+                # Rebuild cached payload immediately so clients see fresh age/message
+                _refresh_cache()
+                data = get_cached_data() or {}
+                self.send_json({
+                    "ok": True,
+                    "home_ai": is_ai,
+                    "home_preview": (msg or "")[:140]
+                })
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}, status=500)
+
         else:
             self.send_response(404)
             self.end_headers()
@@ -770,7 +1051,7 @@ class Handler(BaseHTTPRequestHandler):
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    server = HTTPServer(("0.0.0.0", PORT), Handler)
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"🚀 SenseCAP Display Server v{SPEC_VERSION}")
     print(f"   http://0.0.0.0:{PORT}/data.json")
     print(f"   http://0.0.0.0:{PORT}/layout.xml")

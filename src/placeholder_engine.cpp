@@ -57,6 +57,11 @@ void PlaceholderEngine::setArray(const char* key, const std::vector<String>& ite
 
 void PlaceholderEngine::applyData(const std::map<String, String>& scalars,
                                    const std::map<String, std::vector<String>>& arrays) {
+    _dataFetchedMs = millis();
+    auto itTs = scalars.find(String("home_message_generated_ts"));
+    if (itTs != scalars.end()) {
+        _homeMsgGeneratedEpoch = (uint32_t) itTs->second.toInt();
+    }
     for (auto& kv : scalars) {
         setValue(kv.first.c_str(), kv.second.c_str());
     }
@@ -111,13 +116,37 @@ void PlaceholderEngine::updateRtc(int8_t tzOffset) {
     snprintf(buf, sizeof(buf), "%d", t.tm_mday);
     setValue("cal_today", buf);
 
-    // {data_age} — elapsed since last data fetch (millis-based, no NTP)
-    if (_dataFetchedMs > 0) {
+    // {data_age} — elapsed since home message generation timestamp (preferred)
+    if (_homeMsgGeneratedEpoch > 0) {
+        time_t nowUtc = time(nullptr);
+        long delta = (long)nowUtc - (long)_homeMsgGeneratedEpoch;
+        if (delta < 0) delta = 0;
+        char ageBuf[20];
+        if (delta < 10) {
+            snprintf(ageBuf, sizeof(ageBuf), "adesso");
+        } else if (delta < 120) {
+            long rounded = (delta / 10) * 10;
+            snprintf(ageBuf, sizeof(ageBuf), "%lds fa", rounded);
+        } else if (delta < 3600) {
+            snprintf(ageBuf, sizeof(ageBuf), "%ldm fa", delta / 60);
+        } else {
+            snprintf(ageBuf, sizeof(ageBuf), "%ldh fa", delta / 3600);
+        }
+        setValue("data_age", ageBuf);
+    } else if (_dataFetchedMs > 0) {
+        // fallback when home timestamp is missing
         uint32_t elapsed = (millis() - _dataFetchedMs) / 1000;
         char ageBuf[16];
-        if (elapsed < 60)        snprintf(ageBuf, sizeof(ageBuf), "%us fa", elapsed);
-        else if (elapsed < 3600) snprintf(ageBuf, sizeof(ageBuf), "%um fa", elapsed / 60);
-        else                     snprintf(ageBuf, sizeof(ageBuf), "%uh fa", elapsed / 3600);
+        if (elapsed < 10) {
+            snprintf(ageBuf, sizeof(ageBuf), "adesso");
+        } else if (elapsed < 120) {
+            uint32_t rounded = (elapsed / 10) * 10;
+            snprintf(ageBuf, sizeof(ageBuf), "%us fa", rounded);
+        } else if (elapsed < 3600) {
+            snprintf(ageBuf, sizeof(ageBuf), "%um fa", elapsed / 60);
+        } else {
+            snprintf(ageBuf, sizeof(ageBuf), "%uh fa", elapsed / 3600);
+        }
         setValue("data_age", ageBuf);
     } else {
         setValue("data_age", "--");
@@ -211,9 +240,39 @@ void PlaceholderEngine::clearRegistrations() {
 String PlaceholderEngine::_friendlyToLvgl(const String& in) const {
     String out = in;
 
+    // Normalize line endings
+    out.replace("\r\n", "\n");
+    out.replace("\r", "\n");
+
+    // Markdown headers (#, ##, ###) + bullet list
+    String normalized;
+    int from = 0;
+    while (from <= out.length()) {
+        int nl = out.indexOf('\n', from);
+        String line = (nl >= 0) ? out.substring(from, nl) : out.substring(from);
+
+        if (line.startsWith("### ") ) {
+            line = line.substring(4);
+        } else if (line.startsWith("## ") ) {
+            line = line.substring(3);
+        } else if (line.startsWith("# ") ) {
+            line = line.substring(2);
+        }
+
+        if (line.startsWith("- ") ) {
+            line = String("• ") + line.substring(2);
+        }
+
+        normalized += line;
+        if (nl < 0) break;
+        normalized += "\n";
+        from = nl + 1;
+    }
+    out = normalized;
+
     // {#RRGGBB}text{/} -> #RRGGBB text#
     int guard = 0;
-    while (guard++ < 64) {
+    while (guard++ < 128) {
         int a = out.indexOf("{#");
         if (a < 0) break;
         int b = out.indexOf("}", a + 2);
@@ -222,65 +281,65 @@ String PlaceholderEngine::_friendlyToLvgl(const String& in) const {
         if (c < 0) break;
         String hex = out.substring(a + 2, b);
         if (hex.length() == 6) {
-            String repl = "#" + hex + " " + out.substring(b + 1, c) + "#";
+            String repl = out.substring(b + 1, c);
             out = out.substring(0, a) + repl + out.substring(c + 3);
-        } else {
-            break;
-        }
+        } else break;
     }
 
-    // **bold** -> bright text color (style-only fallback)
+    // **bold**
     guard = 0;
-    while (guard++ < 64) {
+    while (guard++ < 128) {
         int a = out.indexOf("**");
         if (a < 0) break;
         int b = out.indexOf("**", a + 2);
         if (b < 0) break;
+        if (b == a + 2) { out.remove(a, 2); continue; }
         String inner = out.substring(a + 2, b);
-        String repl = "#FFFFFF " + inner + "#";
+        String repl = inner;
         out = out.substring(0, a) + repl + out.substring(b + 2);
     }
 
-    // _italic_ -> softer accent color (style-only fallback)
-    // Only treat as marker when underscore is delimiter-like, to avoid names like co2_value.
     auto isWord = [](char c) -> bool {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
     };
+
+    // *italic*
+    guard = 0;
+    while (guard++ < 128) {
+        int a = out.indexOf("*");
+        if (a < 0) break;
+        int b = out.indexOf("*", a + 1);
+        if (b < 0) break;
+        if (b == a + 1) { out.remove(a, 1); continue; }
+        char prev = (a > 0) ? out[a - 1] : ' ';
+        char next = (a + 1 < out.length()) ? out[a + 1] : ' ';
+        char prev2 = (b > 0) ? out[b - 1] : ' ';
+        char next2 = (b + 1 < out.length()) ? out[b + 1] : ' ';
+        bool openOk = !isWord(prev) && !isspace((unsigned char)next);
+        bool closeOk = !isspace((unsigned char)prev2) && !isWord(next2);
+        if (!openOk || !closeOk) { out.remove(a, 1); continue; }
+        String inner = out.substring(a + 1, b);
+        String repl = inner;
+        out = out.substring(0, a) + repl + out.substring(b + 1);
+    }
+
+    // _italic_
     guard = 0;
     while (guard++ < 128) {
         int a = out.indexOf("_");
         if (a < 0) break;
         int b = out.indexOf("_", a + 1);
         if (b < 0) break;
-
+        if (b == a + 1) { out.remove(a, 1); continue; }
         char prev = (a > 0) ? out[a - 1] : ' ';
         char next = (a + 1 < out.length()) ? out[a + 1] : ' ';
         char prev2 = (b > 0) ? out[b - 1] : ' ';
         char next2 = (b + 1 < out.length()) ? out[b + 1] : ' ';
-
         bool openOk = !isWord(prev) && !isspace((unsigned char)next);
         bool closeOk = !isspace((unsigned char)prev2) && !isWord(next2);
-        if (!openOk || !closeOk || b == a + 1) {
-            // Skip this underscore and continue search
-            String left = out.substring(0, a + 1);
-            String right = out.substring(a + 1);
-            int rel = right.indexOf("_");
-            if (rel < 0) break;
-            int aa = a + 1 + rel;
-            b = out.indexOf("_", aa + 1);
-            if (b < 0) break;
-            a = aa;
-            prev = (a > 0) ? out[a - 1] : ' ';
-            next = (a + 1 < out.length()) ? out[a + 1] : ' ';
-            prev2 = (b > 0) ? out[b - 1] : ' ';
-            next2 = (b + 1 < out.length()) ? out[b + 1] : ' ';
-            openOk = !isWord(prev) && !isspace((unsigned char)next);
-            closeOk = !isspace((unsigned char)prev2) && !isWord(next2);
-            if (!openOk || !closeOk || b == a + 1) break;
-        }
-
+        if (!openOk || !closeOk) { out.remove(a, 1); continue; }
         String inner = out.substring(a + 1, b);
-        String repl = "#D6D6EA " + inner + "#";
+        String repl = inner;
         out = out.substring(0, a) + repl + out.substring(b + 1);
     }
 
@@ -299,12 +358,10 @@ void PlaceholderEngine::_pushScalar(const String& key, const char* value) {
 void PlaceholderEngine::_pushArray(const String& key, const std::vector<String>& items) {
     auto it = _arrays.find(key);
     if (it == _arrays.end()) return;
-    std::vector<String> converted;
-    converted.reserve(items.size());
-    for (const auto& v : items) converted.push_back(_friendlyToLvgl(v));
+    // Keep array items raw: list/widget renderers may apply markdown-aware formatting.
     for (auto& entry : it->second) {
         if (entry.container && entry.rebuildFn)
-            entry.rebuildFn(entry.container, converted);
+            entry.rebuildFn(entry.container, items);
     }
 }
 
