@@ -64,7 +64,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.75"
+SPEC_VERSION = "1.3.76"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -963,7 +963,7 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </row>
     <!-- Bottom: scrollable full buongiorno -->
     <card bg="#000" bg_opa="30" border_color="#FFFFFF" border_width="1" radius="12" pad="14" w="100%" scroll="true" scrollbar="false" gap="10">
-      <list items="{home_lines}" font="18" color="#D9D9EE" markdown="true" bullet="" max_lines="0"/>
+      <list items="{home_lines}" font="18" color="#D9D9EE" markdown="true" rich="true" bullet="" max_lines="0"/>
     </card>
     <card bg="#E53935" radius="6" pad="12" w="100%" visible="{alert_visible}">
       <label text="⚠ {alert}" font="16" color="#FFFFFF" align="center"/>
