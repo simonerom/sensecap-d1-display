@@ -64,7 +64,7 @@ def strip_emoji(text):
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 PORT = 8765
-SPEC_VERSION = "1.3.76"
+SPEC_VERSION = "1.3.77"
 TZ = pytz.timezone("Europe/Rome")
 CALDAV_USER = "mail@sromano.com"
 
@@ -477,6 +477,72 @@ def get_events():
         return [f"{r['title']}|||{r['date_str']}" for r in result[:15]]
     except:
         return []
+
+# ---- Heating (Shelly BluTRV) ----
+HEAT_ROOMS = {
+    "sala":   ("192.168.1.33", 200),
+    "cucina": ("192.168.1.33", 201),
+    "camera": ("192.168.1.33", 202),
+    "bagno":  ("192.168.1.34", 200),
+    "studio": ("192.168.1.34", 201),
+}
+
+def _heat_get_status(ip, rid):
+    try:
+        u = f"http://{ip}/rpc/BluTRV.GetStatus?id={rid}"
+        req = urllib.request.Request(u, headers={"User-Agent":"Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=3.0) as r:
+            return json.loads(r.read().decode("utf-8", errors="replace"))
+    except Exception:
+        return None
+
+def _heat_set_target(ip, rid, target_c):
+    try:
+        u = f"http://{ip}/rpc/BluTRV.Call"
+        payload = json.dumps({"id": rid, "method": "TRV.SetTarget", "params": {"id": 0, "target_C": float(target_c)}}).encode("utf-8")
+        req = urllib.request.Request(u, data=payload, headers={"Content-Type":"application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=4.0) as r:
+            _ = r.read()
+        return True
+    except Exception:
+        return False
+
+def get_heating():
+    out = {}
+    on_cnt = 0
+    total = 0
+    for name, (ip, rid) in HEAT_ROOMS.items():
+        st = _heat_get_status(ip, rid)
+        total += 1
+        if st is None:
+            out[f"heat_{name}"] = "--"
+            continue
+        tgt = st.get("target_C", 0)
+        is_on = isinstance(tgt, (int, float)) and tgt >= 20
+        out[f"heat_{name}"] = "Acceso" if is_on else "Spento"
+        if is_on:
+            on_cnt += 1
+    if on_cnt == 0:
+        out["heat_global"] = "Tutto spento"
+    elif on_cnt == total:
+        out["heat_global"] = "Tutto acceso"
+    else:
+        out["heat_global"] = f"Misto ({on_cnt}/{total} accesi)"
+    return out
+
+def heating_action(cmd):
+    cmd = (cmd or "").strip().lower()
+    if cmd == "all_on":
+        return all(_heat_set_target(ip, rid, 30) for ip, rid in HEAT_ROOMS.values())
+    if cmd == "all_off":
+        return all(_heat_set_target(ip, rid, 4) for ip, rid in HEAT_ROOMS.values())
+    for name, (ip, rid) in HEAT_ROOMS.items():
+        if cmd == f"{name}_on":
+            return _heat_set_target(ip, rid, 30)
+        if cmd == f"{name}_off":
+            return _heat_set_target(ip, rid, 4)
+    return False
+
 
 def get_curiosity(now):
     curiosities = {
@@ -970,6 +1036,10 @@ LAYOUT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </card>
   </screen>
 
+  <screen id="heating" bg="#4A235A" grad_color="#1B4F72" pad="10">
+    <heating_controls/>
+  </screen>
+
   <screen id="calendar" bg="#F0F0F6" pad="10">
     <!-- Header: mese a sx, temp int/est a dx -->
     <row gap="4" h="28" w="100%">
@@ -1059,6 +1129,18 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/health":
             self.send_json({"status": "ok", "version": SPEC_VERSION,
                             "timestamp": now.isoformat()})
+
+        elif self.path.startswith("/heating/action"):
+            print(f"[{ts}] GET /heating/action")
+            ok = False
+            try:
+                from urllib.parse import urlparse, parse_qs
+                q = parse_qs(urlparse(self.path).query)
+                cmd = (q.get("cmd", [""])[0])
+                ok = heating_action(cmd)
+            except Exception:
+                ok = False
+            self.send_json({"ok": ok}, status=200 if ok else 500)
 
         elif self.path == "/home/refresh":
             print(f"[{ts}] GET /home/refresh")

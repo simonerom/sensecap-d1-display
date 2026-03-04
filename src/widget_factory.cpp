@@ -4,6 +4,8 @@
 #include "widget_factory.h"
 #include <extra/widgets/span/lv_span.h>
 #include <set>
+#include <WiFiClient.h>
+#include "settings_manager.h"
 #include "../include/config.h"
 
 WidgetFactory::WidgetFactory(PlaceholderEngine& engine) : _engine(engine) {}
@@ -126,6 +128,7 @@ lv_obj_t* WidgetFactory::buildElement(lv_obj_t* parent,
     if (strcmp(element, "events_list")   == 0) return _buildEventsList(parent, attrs);
     if (strcmp(element, "big_clock")     == 0) return _buildBigClock(parent, attrs);
     if (strcmp(element, "settings_form") == 0) return _buildSettingsForm(parent);
+    if (strcmp(element, "heating_controls") == 0) return _buildHeatingControls(parent, attrs);
 
     Serial.printf("[WidgetFactory] Unknown element: %s\n", element);
     return nullptr;
@@ -442,6 +445,120 @@ lv_obj_t* WidgetFactory::_buildList(lv_obj_t* parent, const AttrMap& attrs) {
     }
 
     return cont;
+}
+
+
+// =============================================================================
+// _buildHeatingControls — cards + buttons for heating controls
+// =============================================================================
+lv_obj_t* WidgetFactory::_buildHeatingControls(lv_obj_t* parent, const AttrMap& attrs) {
+    (void)attrs;
+    auto sendAction = [](const String& cmd) {
+        AppSettings s{};
+        SettingsManager sm;
+        sm.load(s);
+        String host = s.serverHost.length() ? s.serverHost : DATA_ENDPOINT_HOST_DEFAULT;
+        uint16_t port = s.serverPort ? s.serverPort : DATA_ENDPOINT_PORT_DEFAULT;
+
+        WiFiClient client;
+        if (!client.connect(host.c_str(), port)) return;
+        String path = "/heating/action?cmd=" + cmd;
+        client.print(String("GET ") + path + " HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n");
+        uint32_t t0 = millis();
+        while (client.connected() && millis() - t0 < 1200) {
+            while (client.available()) client.read();
+        }
+        client.stop();
+    };
+
+    lv_obj_t* col = lv_hlp_obj(parent);
+    lv_hlp_flex_col(col, 10);
+    lv_obj_set_width(col, LV_PCT(100));
+
+    // Global status card
+    lv_obj_t* top = lv_hlp_card(col, lv_hlp_hex(0xFFFFFF), 12, 0);
+    lv_obj_set_style_bg_opa(top, LV_OPA_30, 0);
+    lv_hlp_flex_col(top, 6);
+    lv_obj_set_width(top, LV_PCT(100));
+    lv_hlp_set_pad_all(top, 12);
+
+    lv_obj_t* t = lv_hlp_label(top, "Riscaldamento", lv_hlp_hex(0x93C5FD), 20);
+    lv_hlp_set_font(t, lv_hlp_font_ex(20, true));
+
+    lv_obj_t* gs = lv_label_create(top);
+    String gsTxt = _resolveAndRegister(gs, "{heat_global}");
+    lv_label_set_text(gs, gsTxt.c_str());
+    lv_hlp_set_text_color(gs, lv_color_white());
+    lv_hlp_set_font(gs, lv_hlp_font_ex(16, true));
+
+    lv_obj_t* row = lv_hlp_obj(top);
+    lv_hlp_flex_row(row, 8);
+    lv_obj_set_width(row, LV_PCT(100));
+
+    auto mkBtn = [&](lv_obj_t* par, const char* txt, const String& cmd, uint32_t hex) {
+        lv_obj_t* b = lv_btn_create(par);
+        lv_obj_set_size(b, LV_PCT(48), 44);
+        lv_hlp_set_bg(b, lv_hlp_hex(hex));
+        lv_hlp_set_radius(b, 8);
+        lv_hlp_set_border_none(b);
+        lv_obj_t* l = lv_label_create(b);
+        lv_label_set_text(l, txt);
+        lv_hlp_set_text_color(l, lv_color_white());
+        lv_hlp_set_font(l, lv_hlp_font_ex(16, true));
+        lv_obj_center(l);
+        String* heapCmd = new String(cmd);
+        lv_obj_add_event_cb(b, [](lv_event_t* e){
+            String* c = (String*)lv_event_get_user_data(e);
+            AppSettings s{}; SettingsManager sm; sm.load(s);
+            String host = s.serverHost.length() ? s.serverHost : DATA_ENDPOINT_HOST_DEFAULT;
+            uint16_t port = s.serverPort ? s.serverPort : DATA_ENDPOINT_PORT_DEFAULT;
+            WiFiClient client;
+            if (!client.connect(host.c_str(), port)) return;
+            String path = "/heating/action?cmd=" + *c;
+            client.print(String("GET ") + path + " HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n");
+            uint32_t t0 = millis();
+            while (client.connected() && millis() - t0 < 1200) while (client.available()) client.read();
+            client.stop();
+        }, LV_EVENT_CLICKED, heapCmd);
+        return b;
+    };
+
+    mkBtn(row, "Accendi tutto", "all_on", 0x22C55E);
+    mkBtn(row, "Spegni tutto", "all_off", 0xEF4444);
+
+    struct R { const char* key; const char* title; } rooms[] = {
+        {"sala", "Sala"}, {"cucina", "Cucina"}, {"camera", "Camera"}, {"bagno", "Bagno"}, {"studio", "Studio"}
+    };
+
+    for (auto &r : rooms) {
+        lv_obj_t* card = lv_hlp_card(col, lv_hlp_hex(0xFFFFFF), 10, 0);
+        lv_obj_set_style_bg_opa(card, LV_OPA_30, 0);
+        lv_hlp_flex_col(card, 6);
+        lv_obj_set_width(card, LV_PCT(100));
+        lv_hlp_set_pad_all(card, 10);
+
+        lv_obj_t* rr = lv_hlp_obj(card);
+        lv_hlp_flex_row(rr, 6);
+        lv_obj_set_width(rr, LV_PCT(100));
+        lv_obj_t* name = lv_hlp_label(rr, r.title, lv_hlp_hex(0xCCCCEE), 16);
+        lv_hlp_set_font(name, lv_hlp_font_ex(16, true));
+        lv_hlp_flex_grow(name, 1);
+
+        lv_obj_t* st = lv_label_create(rr);
+        String ph = String("{heat_") + r.key + "}";
+        String stTxt = _resolveAndRegister(st, ph.c_str());
+        lv_label_set_text(st, stTxt.c_str());
+        lv_hlp_set_text_color(st, lv_color_white());
+        lv_hlp_set_font(st, lv_hlp_font_ex(15, true));
+
+        lv_obj_t* br = lv_hlp_obj(card);
+        lv_hlp_flex_row(br, 8);
+        lv_obj_set_width(br, LV_PCT(100));
+        mkBtn(br, "ON", String(r.key) + "_on", 0x22C55E);
+        mkBtn(br, "OFF", String(r.key) + "_off", 0xEF4444);
+    }
+
+    return col;
 }
 
 // =============================================================================

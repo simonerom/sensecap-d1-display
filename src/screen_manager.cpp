@@ -64,7 +64,7 @@ bool ScreenManager::buildFromXml(const char* xml, size_t len) {
     lv_hlp_load_screen_instant(blank);
 
     // Now safe to delete old screens
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         if (_screens[i]) {
             lv_obj_del(_screens[i]);
             _screens[i] = nullptr;
@@ -83,8 +83,8 @@ bool ScreenManager::buildFromXml(const char* xml, size_t len) {
     }
 
     // Map screen ids to PageId indices
-    const char* idMap[4] = { "settings", "home", "calendar", "clock" };
-    for (int i = 0; i < 4; i++) {
+    const char* idMap[5] = { "settings", "home", "calendar", "clock", "heating" };
+    for (int i = 0; i < 5; i++) {
         auto it = built.find(idMap[i]);
         if (it != built.end()) {
             _screens[i] = it->second;
@@ -136,8 +136,8 @@ void ScreenManager::buildFallback(const char* errorMsg) {
     _screens[(int)PageId::Settings] = settingsScr;
 
     // Minimal screens for other pages
-    const char* labels[4] = { nullptr, "No layout", "No layout", "No layout" };
-    for (int i = 1; i < 4; i++) {
+    const char* labels[5] = { nullptr, "No layout", "No layout", "No layout", "No layout" };
+    for (int i = 1; i < 5; i++) {
         lv_obj_t* scr = lv_obj_create(nullptr);
         lv_hlp_set_bg(scr, lv_hlp_hex(0x1A1A2E));
         lv_hlp_set_border_none(scr);
@@ -348,9 +348,11 @@ void ScreenManager::_processGesture() {
                     if      (_currentPage == PageId::Settings) _navigateTo(PageId::Home);
                     else if (_currentPage == PageId::Home)     _navigateTo(PageId::Calendar);
                     else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Clock);
+                    else if (_currentPage == PageId::Clock)    _navigateTo(PageId::Heating);
                 } else {
                     // Swipe right (finger moved right) → go to previous page (left)
-                    if      (_currentPage == PageId::Clock)    _navigateTo(PageId::Calendar);
+                    if      (_currentPage == PageId::Heating) _navigateTo(PageId::Clock);
+                    else if (_currentPage == PageId::Clock)    _navigateTo(PageId::Calendar);
                     else if (_currentPage == PageId::Calendar) _navigateTo(PageId::Home);
                     else if (_currentPage == PageId::Home)     _navigateTo(PageId::Settings);
                 }

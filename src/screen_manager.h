@@ -33,7 +33,7 @@
 //   index 1 = Home
 //   index 2 = Calendar  (right of Home)
 //   index 3 = Clock     (right of Calendar)
-enum class PageId : uint8_t { Settings = 0, Home = 1, Calendar = 2, Clock = 3 };
+enum class PageId : uint8_t { Settings = 0, Home = 1, Calendar = 2, Clock = 3, Heating = 4 };
 
 // UI command types posted from non-UI tasks
 enum class UiCmdType : uint8_t {
@@ -115,7 +115,7 @@ private:
     SettingsPage      _settingsPage;
 
     // ---- Screens ----
-    lv_obj_t* _screens[4] = {};     // indexed by PageId
+    lv_obj_t* _screens[5] = {};     // indexed by PageId
     PageId    _currentPage = PageId::Home;
     bool      _screensBuilt = false;
 
